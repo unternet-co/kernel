@@ -1,14 +1,10 @@
 {
   "git": {
-    "commitMessage": "chore: release v${version}",
-    "tagName": "v${version}",
-    "pushRepo": "origin"
+    "commitMessage": "chore: bump version to v${version}",
+    "tag": false
   },
   "npm": {
     "publish": false
-  },
-  "hooks": {
-    "after:bump": "git checkout -b release/v${version}"
   },
   "plugins": {
     "@release-it/conventional-changelog": {
