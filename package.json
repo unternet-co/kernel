@@ -1,0 +1,46 @@
+{
+  "name": "@unternet/kernel",
+  "version": "0.1.1",
+  "description": "The cognitive engine for intelligent applications.",
+  "main": "dist/index.js",
+  "private": false,
+  "type": "module",
+  "scripts": {
+    "prepare": "husky",
+    "test": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "release": "release-it"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unternet-co/kernel.git"
+  },
+  "author": "Rupert Manfredi <rupert@unternet.co>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/unternet-co/kernel/issues"
+  },
+  "homepage": "https://github.com/unternet-co/kernel#readme",
+  "lint-staged": {
+    "*.{js,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@release-it/conventional-changelog": "^10.0.1",
+    "eslint": "^9.29.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.1.2",
+    "prettier": "^3.5.3",
+    "release-it": "^19.0.3",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "typescript-eslint": "^8.34.1"
+  }
+}
