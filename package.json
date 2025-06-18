@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "dev": "tsc --watch",
     "build": "tsc",
-    "release": "release-it"
+    "version": "release-it"
   },
   "repository": {
     "type": "git",
