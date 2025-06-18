@@ -3,7 +3,6 @@
   "version": "0.1.1",
   "description": "The cognitive engine for intelligent applications.",
   "main": "dist/index.js",
-  "private": false,
   "type": "module",
   "scripts": {
     "prepare": "husky",
@@ -23,6 +22,9 @@
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/unternet-co/kernel/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "homepage": "https://github.com/unternet-co/kernel#readme",
   "lint-staged": {
