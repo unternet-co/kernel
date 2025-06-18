@@ -1,7 +1,8 @@
 {
   "git": {
     "commitMessage": "chore: bump version to v${version}",
-    "tag": false
+    "tag": false,
+    "requireUpstream": false
   },
   "npm": {
     "publish": false
