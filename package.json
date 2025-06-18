@@ -1,6 +1,6 @@
 {
   "name": "@unternet/kernel",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The cognitive engine for intelligent applications.",
   "main": "dist/index.js",
   "type": "module",
@@ -12,7 +12,7 @@
     "format": "prettier --write .",
     "dev": "tsc --watch",
     "build": "tsc",
-    "release": "release-it"
+    "version": "release-it"
   },
   "repository": {
     "type": "git",
@@ -40,9 +40,7 @@
     "lint-staged": "^16.1.2",
     "prettier": "^3.5.3",
     "release-it": "^19.0.3",
+    "typescript-eslint": "^8.34.1",
     "vitest": "^3.2.4"
-  },
-  "dependencies": {
-    "typescript-eslint": "^8.34.1"
   }
 }

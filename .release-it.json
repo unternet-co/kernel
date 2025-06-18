@@ -1,11 +1,18 @@
 {
+  "git": {
+    "commitMessage": "chore: bump version to v${version}",
+    "tag": false,
+    "commit": false,
+    "push": false,
+    "requireUpstream": false
+  },
+  "npm": {
+    "publish": false
+  },
   "plugins": {
     "@release-it/conventional-changelog": {
       "preset": "angular",
       "infile": "CHANGELOG.md"
     }
-  },
-  "npm": {
-    "publish": false
   }
 }
