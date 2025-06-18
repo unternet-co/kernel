@@ -1,11 +1,19 @@
 {
+  "git": {
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "pushRepo": "origin"
+  },
+  "npm": {
+    "publish": false
+  },
+  "hooks": {
+    "after:bump": "git checkout -b release/v${version}"
+  },
   "plugins": {
     "@release-it/conventional-changelog": {
       "preset": "angular",
       "infile": "CHANGELOG.md"
     }
-  },
-  "npm": {
-    "publish": false
   }
 }

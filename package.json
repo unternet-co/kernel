@@ -40,9 +40,7 @@
     "lint-staged": "^16.1.2",
     "prettier": "^3.5.3",
     "release-it": "^19.0.3",
+    "typescript-eslint": "^8.34.1",
     "vitest": "^3.2.4"
-  },
-  "dependencies": {
-    "typescript-eslint": "^8.34.1"
   }
 }
