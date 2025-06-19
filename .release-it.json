@@ -12,5 +12,8 @@
       "preset": "angular",
       "infile": "CHANGELOG.md"
     }
+  },
+  "hooks": {
+    "after:bump": "git checkout -b release/${version} && npm version ${version} --workspaces"
   }
 }
