@@ -2,10 +2,7 @@
   "git": {
     "commitMessage": "chore: bump version to v${version}",
     "tag": false,
-    "commit": false,
-    "push": false,
-    "requireUpstream": false,
-    "requireCleanWorkingDir": false
+    "requireUpstream": false
   },
   "npm": {
     "publish": false
