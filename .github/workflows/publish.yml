@@ -1,7 +1,8 @@
 name: Publish to NPM
+
 on:
-  push:
-    tags: ['v*']
+  repository_dispatch:
+    types: [publish_release]
 
 jobs:
   publish:
