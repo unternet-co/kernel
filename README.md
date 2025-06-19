@@ -1,6 +1,6 @@
 # Unternet Kernel
 
-The Unternet Kernel consists of a series of modules which work in tandem to form the basis of an agentic operating system. It's capable of understanding user intent, executing actions, accumulating memory, and orchestrating a full grahical user interface with stateful processes.
+The Unternet Kernel consists of a series of modules which work in tandem to form the basis of an agentic operating system. It's capable of understanding user intent, executing actions, accumulating memory, and orchestrating a full graphical user interface with stateful processes.
 
 For more information, see the [documentation](docs/01-introduction.md).
 
