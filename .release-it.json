@@ -4,7 +4,8 @@
     "tag": false,
     "commit": false,
     "push": false,
-    "requireUpstream": false
+    "requireUpstream": false,
+    "requireCleanWorkingDir": false
   },
   "npm": {
     "publish": false
