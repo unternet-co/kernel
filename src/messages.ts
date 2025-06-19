@@ -1,7 +1,13 @@
 import { ulid } from 'ulid';
-import { JSONValue } from './types';
+import { JSONValue } from './types.js';
+import { CoreAssistantMessage, CoreSystemMessage, CoreUserMessage } from 'ai';
 
-export type KernelMessage = InputMessage | ResponseMessage | ThoughtMessage | LogMessage | ToolMessage;
+export type KernelMessage =
+  | InputMessage
+  | ResponseMessage
+  | ThoughtMessage
+  | LogMessage
+  | ToolMessage;
 
 export interface BaseMessage {
   id: string;
@@ -114,4 +120,33 @@ export function createToolMessage(init: {
     name: init.name,
     args: init.args,
   };
+}
+
+export type ModelMessage =
+  | CoreSystemMessage
+  | CoreUserMessage
+  | CoreAssistantMessage;
+
+/**
+ * Translates a set of kernel messages into model messages.
+ * These model messages can be used with the `ai` SDK.
+ *
+ * @param kernelMsgs The kernel messages to translate.
+ * @returns An array of model messages.
+ */
+export function toModelMessages(kernelMsgs: KernelMessage[]): ModelMessage[] {
+  const modelMsgs: ModelMessage[] = [];
+
+  for (const msg of kernelMsgs) {
+    if (msg.type === 'input' && msg.text?.trim()) {
+      modelMsgs.push({
+        role: 'user',
+        content: msg.text,
+      });
+    }
+
+    // TODO: Handle other message types (response, thought, log, tool)
+  }
+
+  return modelMsgs;
 }
