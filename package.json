@@ -42,5 +42,9 @@
     "release-it": "^19.0.3",
     "typescript-eslint": "^8.34.1",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "ai": "^4.3.16",
+    "ulid": "^3.0.1"
   }
 }
