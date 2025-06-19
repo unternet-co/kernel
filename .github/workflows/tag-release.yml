@@ -13,7 +13,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - uses: Klemensas/action-autotag@stable
-      with:
-        GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-        tag_prefix: "v"
+    - name: Create and push tag from package.json
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        TAG="v$VERSION"
+        
+        # Check if tag already exists
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "Tag $TAG already exists, skipping"
+          exit 0
+        fi
+        
+        # Create and push tag
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag "$TAG"
+        git push origin "$TAG"
+        echo "Created and pushed tag $TAG"
