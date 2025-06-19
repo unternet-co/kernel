@@ -17,6 +17,7 @@ jobs:
     - name: Fetch tags
       run: git fetch --tags
 
+
     - name: Create and push tag from package.json
       run: |
         VERSION=$(node -p "require('./package.json').version")
