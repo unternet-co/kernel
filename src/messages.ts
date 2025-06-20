@@ -1,26 +1,40 @@
+/**
+ * Message processing for cognitive kernels vs. LLM conversations
+ *
+ * Kernel messages are organized by semantic type (input, response, reasoning, etc.)
+ * rather than conversational roles. This reflects that a cognitive kernel processes
+ * different kinds of information flows - not just "who said what" but "what kind
+ * of processing step occurred."
+ *
+ * When grouping is needed, it should be by execution threads/goals, not speakers.
+ * The role-based grouping (user/assistant/system) is an LLM conversation pattern
+ * that doesn't map well to kernel internals where multiple subsystems generate
+ * different message types in service of the same goal.
+ *
+ * Message rendering for LLMs is handled by the Interpreter class since different
+ * models may require different rendering strategies.
+ */
+
 import { ulid } from 'ulid';
-import { JSONValue } from './types.js';
-import { CoreAssistantMessage, CoreSystemMessage, CoreUserMessage } from 'ai';
+import { JSONValue } from './types';
 
 export type KernelMessage =
   | InputMessage
-  | ResponseMessage
-  | ThoughtMessage
+  | ReplyMessage
+  | ReasoningMessage
   | LogMessage
-  | ToolMessage;
+  | ToolCallMessage
+  | ToolResultMessage;
 
 export interface BaseMessage {
   id: string;
   createdAt: number;
-  correlationId?: string; // Can point to the user input that triggered this
 }
 
-function createBaseMessage(overrides: Partial<BaseMessage> = {}) {
+function createBaseMessage() {
   return {
     id: ulid(),
-    correlationId: overrides.correlationId ?? ulid(),
     createdAt: Date.now(),
-    ...overrides,
   };
 }
 
@@ -34,13 +48,11 @@ export function createInputMessage(init: {
   text?: string;
   files?: FileAttachment[];
 }): InputMessage {
-  const base = createBaseMessage();
   return {
-    ...base,
+    ...createBaseMessage(),
     type: 'input',
     text: init.text,
     files: init.files,
-    correlationId: base.id,
   };
 }
 
@@ -50,35 +62,43 @@ export interface FileAttachment {
   mimeType?: string;
 }
 
-export interface ResponseMessage extends BaseMessage {
-  type: 'response';
+export interface ReplyMessage extends BaseMessage {
+  type: 'reply';
   text: string;
 }
 
-export function createResponseMessage(init: {
+export interface ReplyMessageDelta extends BaseMessage {
+  type: 'reply.delta';
   text: string;
-  correlationId?: string;
-}): ResponseMessage {
+}
+
+export function createReplyMessage<T extends boolean = false>(init: {
+  text: string;
+  delta?: T;
+}): T extends true ? ReplyMessageDelta : ReplyMessage {
   return {
-    ...createBaseMessage(init),
-    type: 'response',
+    ...createBaseMessage(),
+    type: init.delta ? 'reply.delta' : 'reply',
     text: init.text,
-  };
+  } as T extends true ? ReplyMessageDelta : ReplyMessage;
 }
 
-export interface ThoughtMessage extends BaseMessage {
-  type: 'thought';
-  text: string;
+export interface ReasoningMessage extends BaseMessage {
+  type: 'reasoning';
+  title: string;
+  summary: string;
 }
 
-export function createThoughtMessage(init: {
-  text: string;
+export function createReasoningMessage(init: {
+  title: string;
+  summary: string;
   correlationId?: string;
-}): ThoughtMessage {
+}): ReasoningMessage {
   return {
-    ...createBaseMessage(init),
-    type: 'thought',
-    text: init.text,
+    ...createBaseMessage(),
+    type: 'reasoning',
+    title: init.title,
+    summary: init.summary,
   };
 }
 
@@ -92,61 +112,47 @@ export function createLogMessage(init: {
   correlationId?: string;
 }): LogMessage {
   return {
-    ...createBaseMessage(init),
+    ...createBaseMessage(),
     type: 'log',
     text: init.text,
   };
 }
 
-export interface ToolMessage extends BaseMessage {
-  type: 'tool';
+export interface ToolCallMessage extends BaseMessage {
+  type: 'tool-call';
   name: string;
   args?: JSONValue;
-  content?: JSONValue;
-  // processId?: string;
-  // display?: 'inline' | 'main_ui' | 'background' | false;
-  // status: 'pending' | 'completed' | 'error';
-  // error?: string;
 }
 
-export function createToolMessage(init: {
+export function createToolCallMessage(init: {
   name: string;
   args?: JSONValue;
-  correlationId?: string;
-}): ToolMessage {
+}): ToolCallMessage {
   return {
-    ...createBaseMessage(init),
-    type: 'tool',
+    ...createBaseMessage(),
+    type: 'tool-call',
     name: init.name,
     args: init.args,
   };
 }
 
-export type ModelMessage =
-  | CoreSystemMessage
-  | CoreUserMessage
-  | CoreAssistantMessage;
+export interface ToolResultMessage extends BaseMessage {
+  type: 'tool-result';
+  callId: string;
+  result: JSONValue;
+  error?: string;
+}
 
-/**
- * Translates a set of kernel messages into model messages.
- * These model messages can be used with the `ai` SDK.
- *
- * @param kernelMsgs The kernel messages to translate.
- * @returns An array of model messages.
- */
-export function toModelMessages(kernelMsgs: KernelMessage[]): ModelMessage[] {
-  const modelMsgs: ModelMessage[] = [];
-
-  for (const msg of kernelMsgs) {
-    if (msg.type === 'input' && msg.text?.trim()) {
-      modelMsgs.push({
-        role: 'user',
-        content: msg.text,
-      });
-    }
-
-    // TODO: Handle other message types (response, thought, log, tool)
-  }
-
-  return modelMsgs;
+export function createToolResultMessage(init: {
+  callId: string;
+  result: JSONValue;
+  error?: string;
+}): ToolResultMessage {
+  return {
+    ...createBaseMessage(),
+    type: 'tool-result',
+    callId: init.callId,
+    result: init.result,
+    error: init.error,
+  };
 }
