@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "dev": "tsc --watch",
     "build": "tsc",
-    "release": "release-it"
+    "release": "release-it",
+    "example": "cd example && npm run start"
   },
   "repository": {
     "type": "git",
@@ -42,5 +43,9 @@
     "release-it": "^19.0.3",
     "typescript-eslint": "^8.34.1",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "ai": "^4.3.16",
+    "ulid": "^3.0.1"
   }
 }

@@ -2,7 +2,24 @@
 
 The Unternet Kernel consists of a series of modules which work in tandem to form the basis of an agentic operating system. It's capable of understanding user intent, executing actions, accumulating memory, and orchestrating a full graphical user interface with stateful processes.
 
-For more information, see the [documentation](docs/01-introduction.md).
+For more information, see the [documentation](docs/introduction.md).
+
+## Quick Start
+
+Try the example chat interface:
+
+```bash
+cd example
+npm install
+echo "OPENAI_API_KEY=your_key_here" > .env
+npm start
+```
+
+This will start an interactive chat session.
+
+## Current status
+
+This is in active development. Don't expect much yet.
 
 ## Releasing
 
