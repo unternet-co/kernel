@@ -22,10 +22,14 @@ interface InterpreterInit {
   model: LanguageModel;
 }
 
-export type InterpreterResponse = AsyncIterable<
-  ReplyMessageDelta | ToolCallMessage
->;
-
+/**
+ * Bridges kernel messages and language models, handling message rendering
+ * and providing streaming interfaces for AI interactions.
+ */
+/**
+ * Bridges kernel messages and language models.
+ * Handles message rendering and streaming interfaces for AI interactions.
+ */
 export class Interpreter {
   model: LanguageModel;
 
@@ -33,12 +37,23 @@ export class Interpreter {
     this.model = model;
   }
 
-  async *stream(messages: KernelMessage[]): InterpreterResponse {
+  /**
+   * Stream AI responses from kernel messages.
+   * Yields reply deltas and tool calls as they're generated.
+   */
+  /**
+   * Creates streaming responses from kernel messages.
+   * Yields text deltas and tool calls as they arrive from the model.
+   */
+  async *stream(
+    messages: KernelMessage[]
+  ): AsyncIterator<ReplyMessageDelta | ToolCallMessage> {
     const output = streamText({
       model: this.model,
       messages: this.renderMessages(messages),
     });
 
+    // TODO: Make it also emit a 'text' event when the delta is done
     for await (const part of output.fullStream) {
       if (part.type === 'text-delta') {
         yield createReplyMessage({
@@ -55,10 +70,10 @@ export class Interpreter {
   }
 
   /**
-   * Renders kernel messages for this interpreter's model.
-   * Different models may require different rendering strategies.
+   * Renders kernel messages for language model consumption.
+   * Converts kernel message types to standard LLM conversation format.
    */
-  renderMessages(messages: KernelMessage[]): RenderedMessage[] {
+  private renderMessages(messages: KernelMessage[]): RenderedMessage[] {
     const renderedMsgs: RenderedMessage[] = [];
 
     for (const msg of messages) {
@@ -67,9 +82,14 @@ export class Interpreter {
           role: 'user',
           content: msg.text,
         });
+      } else if (msg.type === 'reply' && msg.text?.trim()) {
+        renderedMsgs.push({
+          role: 'assistant',
+          content: msg.text,
+        });
       }
 
-      // TODO: Handle other message types (response, reasoning, log, tool-call, tool-result)
+      // TODO: Handle other message types (reasoning, log, tool-call, tool-result)
     }
 
     return renderedMsgs;

@@ -4,6 +4,23 @@ The Unternet Kernel consists of a series of modules which work in tandem to form
 
 For more information, see the [documentation](docs/introduction.md).
 
+## Quick Start
+
+Try the example chat interface:
+
+```bash
+cd example
+npm install
+echo "OPENAI_API_KEY=your_key_here" > .env
+npm start
+```
+
+This will start an interactive chat session.
+
+## Current status
+
+This is in active development. Don't expect much yet.
+
 ## Releasing
 
 From the latest version of main, run `npm run release`. This will select a version bump based on semantic commits, create a release branch, edit the changelog, and push. (You may want to optionally edit the changelog for clarity).

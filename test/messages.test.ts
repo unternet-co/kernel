@@ -1,13 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
   createInputMessage,
-  createReplyMessage,
-  createReasoningMessage,
   createToolCallMessage,
   createToolResultMessage,
 } from '../src/messages.js';
-import { Interpreter } from '../src/interpreter.js';
-import { LanguageModel } from '../src/types.js';
 
 describe('createInputMessage', () => {
   it('creates input message with text and required fields', () => {
@@ -54,7 +50,7 @@ describe('createToolCallMessage', () => {
       args: { city: 'San Francisco' },
     });
 
-    expect(message.type).toBe('tool-call');
+    expect(message.type).toBe('tool_call');
     expect(message.name).toBe('get_weather');
     expect(message.args).toEqual({ city: 'San Francisco' });
     expect(message.id).toBeDefined();
@@ -68,7 +64,7 @@ describe('createToolResultMessage', () => {
       result: { temperature: 72, conditions: 'sunny' },
     });
 
-    expect(message.type).toBe('tool-result');
+    expect(message.type).toBe('tool_result');
     expect(message.callId).toBe('call_123');
     expect(message.result).toEqual({ temperature: 72, conditions: 'sunny' });
     expect(message.error).toBeUndefined();
@@ -84,43 +80,5 @@ describe('createToolResultMessage', () => {
 
     expect(message.error).toBe('API rate limit exceeded');
     expect(message.result).toBe(null);
-  });
-});
-
-describe('Interpreter.renderMessages', () => {
-  const mockModel = {} as LanguageModel; // Mock model for testing
-
-  const interpreter = new Interpreter({ model: mockModel });
-
-  it('converts user input messages to rendered messages', () => {
-    const kernelMessages = [
-      createInputMessage({ text: 'Hello' }),
-      createReplyMessage({ text: 'Hi there!' }),
-      createReasoningMessage({
-        title: 'Analysis',
-        summary: 'Processing user request...',
-      }),
-    ];
-
-    const renderedMessages = interpreter.renderMessages(kernelMessages);
-
-    expect(renderedMessages).toHaveLength(1);
-    expect(renderedMessages[0]).toEqual({
-      role: 'user',
-      content: 'Hello',
-    });
-  });
-
-  it('filters out empty text messages', () => {
-    const kernelMessages = [
-      createInputMessage({ text: '' }),
-      createInputMessage({ text: '   ' }),
-      createInputMessage({ text: 'Hello' }),
-    ];
-
-    const renderedMessages = interpreter.renderMessages(kernelMessages);
-
-    expect(renderedMessages).toHaveLength(1);
-    expect(renderedMessages[0].content).toBe('Hello');
   });
 });

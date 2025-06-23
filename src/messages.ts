@@ -1,20 +1,3 @@
-/**
- * Message processing for cognitive kernels vs. LLM conversations
- *
- * Kernel messages are organized by semantic type (input, response, reasoning, etc.)
- * rather than conversational roles. This reflects that a cognitive kernel processes
- * different kinds of information flows - not just "who said what" but "what kind
- * of processing step occurred."
- *
- * When grouping is needed, it should be by execution threads/goals, not speakers.
- * The role-based grouping (user/assistant/system) is an LLM conversation pattern
- * that doesn't map well to kernel internals where multiple subsystems generate
- * different message types in service of the same goal.
- *
- * Message rendering for LLMs is handled by the Interpreter class since different
- * models may require different rendering strategies.
- */
-
 import { ulid } from 'ulid';
 import { JSONValue } from './types';
 
@@ -29,9 +12,10 @@ export type KernelMessage =
 export interface BaseMessage {
   id: string;
   createdAt: number;
+  // triggerResponse: 'always' | 'auto' | 'never';
 }
 
-function createBaseMessage() {
+function createBaseMessage(): BaseMessage {
   return {
     id: ulid(),
     createdAt: Date.now(),
@@ -119,7 +103,7 @@ export function createLogMessage(init: {
 }
 
 export interface ToolCallMessage extends BaseMessage {
-  type: 'tool-call';
+  type: 'tool_call';
   name: string;
   args?: JSONValue;
 }
@@ -130,14 +114,14 @@ export function createToolCallMessage(init: {
 }): ToolCallMessage {
   return {
     ...createBaseMessage(),
-    type: 'tool-call',
+    type: 'tool_call',
     name: init.name,
     args: init.args,
   };
 }
 
 export interface ToolResultMessage extends BaseMessage {
-  type: 'tool-result';
+  type: 'tool_result';
   callId: string;
   result: JSONValue;
   error?: string;
@@ -150,7 +134,7 @@ export function createToolResultMessage(init: {
 }): ToolResultMessage {
   return {
     ...createBaseMessage(),
-    type: 'tool-result',
+    type: 'tool_result',
     callId: init.callId,
     result: init.result,
     error: init.error,
