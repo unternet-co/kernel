@@ -1,4 +1,4 @@
-import { JSONValue, ToolSet } from 'ai';
+import { JSONValue, Tool, ToolSet } from 'ai';
 import { JSONSchemaDefinition } from './types';
 import { z, ZodSchema } from 'zod';
 
