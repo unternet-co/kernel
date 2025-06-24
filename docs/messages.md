@@ -23,12 +23,12 @@ User input to the system. Can contain text and/or file attachments.
 }
 ```
 
-### ResponseMessage  
+### ReplyMessage
 AI response to the user. Contains the final output text.
 
 ```typescript
 {
-  type: 'response', 
+  type: 'reply', 
   text: string
 }
 ```

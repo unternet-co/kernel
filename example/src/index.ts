@@ -1,16 +1,39 @@
 import { openai } from '@ai-sdk/openai';
 import readline from 'readline';
 import chalk from 'chalk';
+import { z } from 'zod';
 import {
-  createInputMessage,
-  createReplyMessage,
+  createMessage,
+  InputMessage,
   Interpreter,
   KernelMessage,
+  ToolResultMessage,
 } from '@unternet/kernel';
 import 'dotenv/config';
+import { KernelTool } from '../../dist/tools';
 
 const model = openai('gpt-4o');
-const interpreter = new Interpreter({ model });
+const tools: KernelTool[] = [
+  {
+    type: 'function',
+    name: 'weather',
+    description: 'Check the weather in a location',
+    parameters: z.object({ city: z.string() }),
+    execute: async () => {
+      console.log('call');
+      return 'warm & sunny';
+    },
+  },
+  {
+    type: 'function',
+    name: 'flight_times',
+    description: 'Check flight time to a location',
+    parameters: z.object({ city: z.string() }),
+    execute: async () => '12h',
+  },
+];
+
+const interpreter = new Interpreter({ model, tools });
 
 const messages: KernelMessage[] = [];
 const rl = readline.createInterface({
@@ -48,28 +71,66 @@ async function handleInput(input: string) {
   // stop here and initiate another user prompt.
   if (!input) return promptUser();
 
-  messages.push(createInputMessage({ text: input }));
+  messages.push(createMessage<InputMessage>({ type: 'input', text: input }));
   console.log(chalk.bold(`\nKernel`));
 
-  let replyText = '';
   const stream = interpreter.stream(messages);
-  let result = await stream.next();
-  while (!result.done) {
-    const part = result.value;
-    // TODO: Add a 'reply' message once the reply is complete
-    if (part.type === 'reply.delta') {
-      replyText += part.text;
-      process.stdout.write(part.text);
+  let next = await stream.next();
+
+  while (!next.done) {
+    const response = next.value;
+
+    // TODO: Consider response.type === 'reply.delta'
+    if (response.type === 'reply.delta') {
+      if (response.text) {
+        process.stdout.write(response.text);
+      }
+      next = await stream.next();
     }
 
-    // If reply stream complete, save the message
-    if (part.type !== 'reply.delta' && replyText.length) {
-      messages.push(createReplyMessage({ text: replyText }));
+    if (response.type === 'reply') {
+      process.stdout.write('\n');
+      messages.push(response);
+      next = await stream.next();
     }
 
-    result = await stream.next();
+    if (response.type === 'tool_call') {
+      const { id, name, args } = response;
+      const tool = tools.find((t) => t.name === name);
+
+      if (!tool) {
+        throw new Error(`Unknown tool: ${name}`);
+      }
+
+      const resultMsg = createMessage<ToolResultMessage>({
+        type: 'tool_result',
+        callId: id,
+        name: name,
+        result: await tool.execute!(args),
+      });
+
+      messages.push(response);
+      console.log(
+        '\n',
+        chalk.bgGray('tool_call'),
+        '\n',
+        chalk.dim(
+          JSON.stringify({ name: response.name, args: response.args }, null, 2)
+        )
+      );
+
+      messages.push(resultMsg);
+      console.log(
+        '\n',
+        chalk.bgGray('tool_result'),
+        '\n',
+        chalk.dim(JSON.stringify(resultMsg.result, null, 2))
+      );
+
+      // Add the extra result message & continue
+      next = await stream.next(resultMsg);
+    }
   }
-  process.stdout.write('\n');
 
   promptUser();
 }

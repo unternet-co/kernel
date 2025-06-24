@@ -6,12 +6,16 @@
       "path": "introduction"
     },
     {
+      "title": "Interpreter",
+      "path": "interpreter"
+    },
+    {
       "title": "Messages",
       "path": "messages"
     },
     {
-      "title": "Interpreter",
-      "path": "interpreter"
+      "title": "Tools",
+      "path": "tools"
     }
   ]
 }

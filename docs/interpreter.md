@@ -1,28 +1,30 @@
 # Interpreter
 
-The `Interpreter` class uses a model to respond to inputs, either user inputs, or (in the future) system inputs.
+The `Interpreter` class uses a language model to respond to inputs. It can be extended with tools to perform actions.
 
 ## Usage
 
+The `Interpreter` provides a streaming interface for receiving messages from the model.
+
 ```typescript
 import { openai } from '@ai-sdk/openai';
-import { Interpreter, createInputMessage } from '@unternet/kernel';
+import { Interpreter, createMessage, InputMessage } from '@unternet/kernel';
 
 const interpreter = new Interpreter({ 
   model: openai('gpt-4o') 
 });
 
-// Helper generates a unique ID for each message
+// Helper generates a unique ID and timestamp for each message
 const messages = [
-  createInputMessage({ text: 'Hello!' })
+  createMessage<InputMessage>({ type: 'input', text: 'Hello!' })
 ];
 
-// Streaming interface
+// The stream yields message deltas and full messages
 for await (const message of interpreter.stream(messages)) {
-  if (message.type === 'reply') {
-    console.log(message.text);
+  if (message.type === 'reply.delta' && message.text) {
+    process.stdout.write(message.text);
   }
 }
 ```
 
-Messages follow the format as described in [messages](./messages.md).
+Messages follow the format as described in [messages](./messages.md). For information on how to use tools, see [tools](./tools.md).
