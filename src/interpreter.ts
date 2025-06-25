@@ -28,11 +28,14 @@ interface InterpreterInit {
   tools: KernelTool[];
 }
 
-export interface ReplyMessageDelta extends BaseMessage {
+export interface MessageDelta extends BaseMessage {
+  status: 'created' | 'completed' | 'in_progress';
+}
+
+export interface ReplyMessageDelta extends MessageDelta {
   type: 'reply.delta';
   delta: {
     text?: string;
-    done?: true;
   };
 }
 
@@ -42,17 +45,9 @@ export class Interpreter {
   model: LanguageModel;
   tools: KernelTool[];
 
-  defaultTools: KernelTool[] = [
-    // {
-    //   type: 'signal',
-    //   name: 'stop_execution',
-    //   description: 'Stop execution & send no further response to the user.'
-    // }
-  ];
-
   constructor({ model, tools }: InterpreterInit) {
     this.model = model;
-    this.tools = [...this.defaultTools, ...tools];
+    this.tools = [...tools];
   }
 
   async *stream(
@@ -69,6 +64,7 @@ export class Interpreter {
       });
 
       let streamingMessage: KernelMessage | null = null;
+
       for await (const part of output.fullStream) {
         if (part.type === 'finish') {
           if (streamingMessage) {
@@ -76,6 +72,8 @@ export class Interpreter {
             messages.push(streamingMessage);
             streamingMessage = null;
           }
+
+          return;
         }
 
         if (part.type === 'text-delta') {
@@ -92,12 +90,23 @@ export class Interpreter {
               type: 'reply',
               text: '',
             });
+
+            const messageStartDelta: ReplyMessageDelta = {
+              id: streamingMessage.id,
+              createdAt: streamingMessage.createdAt,
+              type: 'reply.delta',
+              status: 'created',
+              delta: {},
+            };
+
+            yield messageStartDelta;
           }
 
           const messageDelta: ReplyMessageDelta = {
             id: streamingMessage.id,
             createdAt: streamingMessage.createdAt,
             type: 'reply.delta',
+            status: 'in_progress',
             delta: { text: part.textDelta },
           };
           streamingMessage.text += messageDelta.delta.text;
@@ -204,7 +213,8 @@ async function* completeStreamingMessage(
     id: streamingMessage.id,
     createdAt: streamingMessage.createdAt,
     type: `${streamingMessage.type}.delta` as KernelMessageDelta['type'],
-    delta: { done: true },
+    status: 'completed',
+    delta: {},
   };
   yield streamingMessage;
 }
