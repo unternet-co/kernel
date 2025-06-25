@@ -1,9 +1,11 @@
+import { ulid } from 'ulid';
 import {
   createMessage,
   KernelMessage,
-  ToolCallMessage,
+  ToolCallsMessage,
   BaseMessage,
   ReplyMessage,
+  ToolResultsMessage,
 } from './messages.js';
 import { KernelTool, createToolSet } from './tools.js';
 import { LanguageModel } from './types.js';
@@ -28,18 +30,29 @@ interface InterpreterInit {
 
 export interface ReplyMessageDelta extends BaseMessage {
   type: 'reply.delta';
-  text?: string;
+  delta: {
+    text?: string;
+    done?: true;
+  };
 }
 
-export type KernelMessageDelta = ReplyMessageDelta | KernelMessage;
+export type KernelMessageDelta = ReplyMessageDelta;
 
 export class Interpreter {
   model: LanguageModel;
   tools: KernelTool[];
 
+  defaultTools: KernelTool[] = [
+    // {
+    //   type: 'signal',
+    //   name: 'stop_execution',
+    //   description: 'Stop execution & send no further response to the user.'
+    // }
+  ];
+
   constructor({ model, tools }: InterpreterInit) {
     this.model = model;
-    this.tools = tools;
+    this.tools = [...this.defaultTools, ...tools];
   }
 
   async *stream(
@@ -49,7 +62,7 @@ export class Interpreter {
     messages = [...messages];
 
     try {
-      const output = await streamText({
+      const output = streamText({
         model: this.model,
         messages: this.renderMessages(messages),
         tools: createToolSet(this.tools),
@@ -57,11 +70,19 @@ export class Interpreter {
 
       let streamingMessage: KernelMessage | null = null;
       for await (const part of output.fullStream) {
-        if (part.type === 'text-delta') {
-          // Complete & send the prior message
-          if (streamingMessage && streamingMessage.type !== 'reply') {
+        if (part.type === 'finish') {
+          if (streamingMessage) {
+            yield* completeStreamingMessage(streamingMessage);
             messages.push(streamingMessage);
-            yield streamingMessage;
+            streamingMessage = null;
+          }
+        }
+
+        if (part.type === 'text-delta') {
+          // Complete & send the prior message, if of a different type
+          if (streamingMessage && streamingMessage.type !== 'reply') {
+            yield* completeStreamingMessage(streamingMessage);
+            messages.push(streamingMessage);
             streamingMessage = null;
           }
 
@@ -77,41 +98,57 @@ export class Interpreter {
             id: streamingMessage.id,
             createdAt: streamingMessage.createdAt,
             type: 'reply.delta',
-            text: part.textDelta,
+            delta: { text: part.textDelta },
           };
-          streamingMessage.text += messageDelta.text;
+          streamingMessage.text += messageDelta.delta.text;
 
           yield messageDelta;
         } else if (part.type === 'error') {
           console.error('Streaming error:', part.error);
           throw part.error;
         } else if (part.type === 'tool-call') {
-          // Complete any streaming message first
           if (streamingMessage) {
+            yield* completeStreamingMessage(streamingMessage);
             messages.push(streamingMessage);
-            yield streamingMessage;
             streamingMessage = null;
           }
 
-          const toolCallMsg = createMessage<ToolCallMessage>({
-            type: 'tool_call',
-            name: part.toolName,
-            args: part.args,
+          const toolCallMsg = createMessage<ToolCallsMessage>({
+            type: 'tool_calls',
+            toolCalls: [
+              {
+                id: ulid(),
+                name: part.toolName,
+                args: part.args,
+              },
+            ],
           });
 
-          const resultMessage = yield toolCallMsg;
+          const resultsMessage = yield toolCallMsg;
           messages.push(toolCallMsg);
-          messages.push(resultMessage);
+
+          if (resultsMessage) {
+            messages.push(resultsMessage);
+          } else {
+            if (!resultsMessage) {
+              const errorResultsMessage = createMessage<ToolResultsMessage>({
+                type: 'tool_results',
+                results: toolCallMsg.toolCalls.map((call) => ({
+                  toolCallId: call.id,
+                  name: call.name,
+                  value: null,
+                  error: 'Tool execution failed: no results returned',
+                })),
+              });
+              messages.push(errorResultsMessage);
+            }
+          }
 
           // Start a new stream with the updated messages
           // ...and return this one, ending its execution.
           yield* this.stream(messages);
           return;
         }
-      }
-
-      if (streamingMessage) {
-        yield streamingMessage;
       }
     } catch (error) {
       console.error('Error in stream:', error);
@@ -133,33 +170,41 @@ export class Interpreter {
           role: 'assistant',
           content: msg.text,
         });
-      } else if (msg.type === 'tool_call') {
+      } else if (msg.type === 'tool_calls') {
         renderedMsgs.push({
           role: 'assistant',
-          content: [
-            {
-              type: 'tool-call',
-              toolCallId: msg.id,
-              toolName: msg.name,
-              args: msg.args,
-            },
-          ],
+          content: msg.toolCalls.map((call) => ({
+            type: 'tool-call',
+            toolCallId: call.id,
+            toolName: call.name, // We need to store this in tool_result messages
+            args: call.args,
+          })),
         });
-      } else if (msg.type === 'tool_result') {
+      } else if (msg.type === 'tool_results') {
         renderedMsgs.push({
           role: 'tool',
-          content: [
-            {
-              type: 'tool-result',
-              toolCallId: msg.callId,
-              toolName: msg.name, // We need to store this in tool_result messages
-              result: msg.result,
-            },
-          ],
+          content: msg.results.map((result) => ({
+            type: 'tool-result',
+            toolCallId: result.toolCallId,
+            toolName: result.name, // We need to store this in tool_result messages
+            result: result.value,
+          })),
         });
       }
     }
 
     return renderedMsgs;
   }
+}
+
+async function* completeStreamingMessage(
+  streamingMessage: KernelMessage
+): AsyncGenerator<KernelMessageDelta | KernelMessage> {
+  yield {
+    id: streamingMessage.id,
+    createdAt: streamingMessage.createdAt,
+    type: `${streamingMessage.type}.delta` as KernelMessageDelta['type'],
+    delta: { done: true },
+  };
+  yield streamingMessage;
 }

@@ -6,8 +6,8 @@ export type KernelMessage =
   | ReplyMessage
   | ReasoningMessage
   | LogMessage
-  | ToolCallMessage
-  | ToolResultMessage;
+  | ToolCallsMessage
+  | ToolResultsMessage;
 
 export interface BaseMessage {
   id: string;
@@ -43,17 +43,26 @@ export interface LogMessage extends BaseMessage {
   text: string;
 }
 
-export interface ToolCallMessage extends BaseMessage {
-  type: 'tool_call';
+export interface ToolCallsMessage extends BaseMessage {
+  type: 'tool_calls';
+  toolCalls: ToolCall[];
+}
+
+export interface ToolCall {
+  id: string;
   name: string;
   args?: JSONValue;
 }
 
-export interface ToolResultMessage extends BaseMessage {
-  type: 'tool_result';
-  callId: string;
+export interface ToolResultsMessage extends BaseMessage {
+  type: 'tool_results';
+  results: ToolResult[];
+}
+
+export interface ToolResult {
+  toolCallId: string;
   name: string; // Tool name for AI SDK compatibility
-  result: JSONValue;
+  value: JSONValue;
   error?: string;
 }
 
