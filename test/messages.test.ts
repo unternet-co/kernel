@@ -5,8 +5,10 @@ import {
   LogMessage,
   ReasoningMessage,
   ReplyMessage,
-  ToolCallMessage,
-  ToolResultMessage,
+  ToolCallsMessage,
+  ToolResultsMessage,
+  ToolCall,
+  ToolResult,
 } from '../src/messages.js';
 
 describe('createInputMessage', () => {
@@ -95,47 +97,62 @@ describe('createLogMessage', () => {
   });
 });
 
-describe('createToolCallMessage', () => {
-  it('creates tool call message with name and args', () => {
-    const message = createMessage<ToolCallMessage>({
-      type: 'tool_call',
-      name: 'get_weather',
-      args: { city: 'San Francisco' },
+describe('createToolCallsMessage', () => {
+  it('creates tool calls message with toolCalls array', () => {
+    const toolCalls: ToolCall[] = [
+      { id: 'call_1', name: 'get_weather', args: { city: 'San Francisco' } },
+      { id: 'call_2', name: 'get_time', args: { timezone: 'PST' } },
+    ];
+    const message = createMessage<ToolCallsMessage>({
+      type: 'tool_calls',
+      toolCalls,
     });
-
-    expect(message.type).toBe('tool_call');
-    expect(message.name).toBe('get_weather');
-    expect(message.args).toEqual({ city: 'San Francisco' });
+    expect(message.type).toBe('tool_calls');
+    expect(message.toolCalls).toEqual(toolCalls);
     expect(message.id).toBeDefined();
+    expect(message.createdAt).toBeTypeOf('number');
   });
 });
 
-describe('createToolResultMessage', () => {
-  it('creates tool result message with call ID and result', () => {
-    const message = createMessage<ToolResultMessage>({
-      type: 'tool_result',
-      callId: 'call_123',
-      name: 'get_weather',
-      result: { temperature: 72, conditions: 'sunny' },
+describe('createToolResultsMessage', () => {
+  it('creates tool results message with results array', () => {
+    const results: ToolResult[] = [
+      {
+        toolCallId: 'call_1',
+        name: 'get_weather',
+        value: { temperature: 72, conditions: 'sunny' },
+      },
+      {
+        toolCallId: 'call_2',
+        name: 'get_time',
+        value: { time: '12:00', timezone: 'PST' },
+        error: undefined,
+      },
+    ];
+    const message = createMessage<ToolResultsMessage>({
+      type: 'tool_results',
+      results,
     });
-
-    expect(message.type).toBe('tool_result');
-    expect(message.callId).toBe('call_123');
-    expect(message.result).toEqual({ temperature: 72, conditions: 'sunny' });
-    expect(message.error).toBeUndefined();
+    expect(message.type).toBe('tool_results');
+    expect(message.results).toEqual(results);
     expect(message.id).toBeDefined();
+    expect(message.createdAt).toBeTypeOf('number');
   });
 
-  it('creates tool result message with error', () => {
-    const message = createMessage<ToolResultMessage>({
-      type: 'tool_result',
-      callId: 'call_456',
-      name: 'get_weather',
-      result: {},
-      error: 'API rate limit exceeded',
+  it('creates tool results message with error in result', () => {
+    const results: ToolResult[] = [
+      {
+        toolCallId: 'call_3',
+        name: 'get_weather',
+        value: {},
+        error: 'API rate limit exceeded',
+      },
+    ];
+    const message = createMessage<ToolResultsMessage>({
+      type: 'tool_results',
+      results,
     });
-
-    expect(message.error).toBe('API rate limit exceeded');
-    expect(message.result).toEqual({});
+    expect(message.results[0].error).toBe('API rate limit exceeded');
+    expect(message.results[0].value).toEqual({});
   });
 });
