@@ -1,13 +1,20 @@
 import { describe, it, expect } from 'vitest';
 import {
-  createInputMessage,
-  createToolCallMessage,
-  createToolResultMessage,
+  createMessage,
+  InputMessage,
+  LogMessage,
+  ReasoningMessage,
+  ReplyMessage,
+  ToolCallMessage,
+  ToolResultMessage,
 } from '../src/messages.js';
 
 describe('createInputMessage', () => {
   it('creates input message with text and required fields', () => {
-    const message = createInputMessage({ text: 'Hello world' });
+    const message = createMessage<InputMessage>({
+      type: 'input',
+      text: 'Hello world',
+    });
 
     expect(message.type).toBe('input');
     expect(message.text).toBe('Hello world');
@@ -24,7 +31,10 @@ describe('createInputMessage', () => {
       },
     ];
 
-    const message = createInputMessage({ files });
+    const message = createMessage<InputMessage>({
+      type: 'input',
+      files,
+    });
 
     expect(message.type).toBe('input');
     expect(message.files).toEqual(files);
@@ -33,7 +43,8 @@ describe('createInputMessage', () => {
 
   it('creates input message with both text and files', () => {
     const files = [{ data: new Uint8Array([1, 2, 3]) }];
-    const message = createInputMessage({
+    const message = createMessage<InputMessage>({
+      type: 'input',
       text: 'Check this file',
       files,
     });
@@ -43,9 +54,51 @@ describe('createInputMessage', () => {
   });
 });
 
+describe('createReplyMessage', () => {
+  it('creates a reply message with text', () => {
+    const message = createMessage<ReplyMessage>({
+      type: 'reply',
+      text: 'This is a reply.',
+    });
+
+    expect(message.type).toBe('reply');
+    expect(message.text).toBe('This is a reply.');
+    expect(message.id).toBeDefined();
+  });
+});
+
+describe('createReasoningMessage', () => {
+  it('creates a reasoning message with title and summary', () => {
+    const message = createMessage<ReasoningMessage>({
+      type: 'reasoning',
+      title: 'Thinking...',
+      summary: 'I am thinking about the problem.',
+    });
+
+    expect(message.type).toBe('reasoning');
+    expect(message.title).toBe('Thinking...');
+    expect(message.summary).toBe('I am thinking about the problem.');
+    expect(message.id).toBeDefined();
+  });
+});
+
+describe('createLogMessage', () => {
+  it('creates a log message with text', () => {
+    const message = createMessage<LogMessage>({
+      type: 'log',
+      text: 'An event occurred.',
+    });
+
+    expect(message.type).toBe('log');
+    expect(message.text).toBe('An event occurred.');
+    expect(message.id).toBeDefined();
+  });
+});
+
 describe('createToolCallMessage', () => {
   it('creates tool call message with name and args', () => {
-    const message = createToolCallMessage({
+    const message = createMessage<ToolCallMessage>({
+      type: 'tool_call',
       name: 'get_weather',
       args: { city: 'San Francisco' },
     });
@@ -59,8 +112,10 @@ describe('createToolCallMessage', () => {
 
 describe('createToolResultMessage', () => {
   it('creates tool result message with call ID and result', () => {
-    const message = createToolResultMessage({
+    const message = createMessage<ToolResultMessage>({
+      type: 'tool_result',
       callId: 'call_123',
+      name: 'get_weather',
       result: { temperature: 72, conditions: 'sunny' },
     });
 
@@ -72,13 +127,15 @@ describe('createToolResultMessage', () => {
   });
 
   it('creates tool result message with error', () => {
-    const message = createToolResultMessage({
+    const message = createMessage<ToolResultMessage>({
+      type: 'tool_result',
       callId: 'call_456',
-      result: null,
+      name: 'get_weather',
+      result: {},
       error: 'API rate limit exceeded',
     });
 
     expect(message.error).toBe('API rate limit exceeded');
-    expect(message.result).toBe(null);
+    expect(message.result).toEqual({});
   });
 });

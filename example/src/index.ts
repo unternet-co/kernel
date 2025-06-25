@@ -1,16 +1,37 @@
 import { openai } from '@ai-sdk/openai';
 import readline from 'readline';
 import chalk from 'chalk';
+import { z } from 'zod';
 import {
-  createInputMessage,
-  createReplyMessage,
+  createMessage,
+  InputMessage,
   Interpreter,
   KernelMessage,
+  ReplyMessage,
+  ToolResultsMessage,
 } from '@unternet/kernel';
 import 'dotenv/config';
+import { FunctionTool } from '@unternet/kernel';
 
 const model = openai('gpt-4o');
-const interpreter = new Interpreter({ model });
+const tools: FunctionTool[] = [
+  {
+    type: 'function',
+    name: 'weather',
+    description: 'Check the weather in a location',
+    parameters: z.object({ city: z.string() }),
+    execute: async () => 'warm & sunny',
+  },
+  {
+    type: 'function',
+    name: 'flight_times',
+    description: 'Check flight time to a location',
+    parameters: z.object({ city: z.string() }),
+    execute: async () => '12h',
+  },
+];
+
+const interpreter = new Interpreter({ model, tools });
 
 const messages: KernelMessage[] = [];
 const rl = readline.createInterface({
@@ -34,7 +55,7 @@ function command(userInput: string): Command {
 }
 
 function promptUser() {
-  rl.question(chalk.bold('\nYou\n'), handleInput);
+  rl.question(chalk.bgCyan('\nInput\n'), handleInput);
 }
 
 async function handleInput(input: string) {
@@ -48,32 +69,106 @@ async function handleInput(input: string) {
   // stop here and initiate another user prompt.
   if (!input) return promptUser();
 
-  messages.push(createInputMessage({ text: input }));
-  console.log(chalk.bold(`\nKernel`));
+  messages.push(createMessage<InputMessage>({ type: 'input', text: input }));
 
-  let replyText = '';
   const stream = interpreter.stream(messages);
-  let result = await stream.next();
-  while (!result.done) {
-    const part = result.value;
-    // TODO: Add a 'reply' message once the reply is complete
-    if (part.type === 'reply.delta') {
-      replyText += part.text;
-      process.stdout.write(part.text);
+  let next = await stream.next();
+  let currentMessage: KernelMessage | null = null;
+
+  while (!next.done) {
+    const response = next.value;
+
+    if (response.type === 'reply.delta') {
+      if (!currentMessage) {
+        currentMessage = {
+          type: 'reply',
+          id: response.id,
+          createdAt: response.createdAt,
+          text: '',
+        } as ReplyMessage;
+
+        console.log(chalk.bgMagenta('\nReply'));
+      }
+
+      if (response.delta.text) {
+        currentMessage.text += response.delta.text;
+        process.stdout.write(response.delta.text);
+      }
+
+      if (response.delta.done) {
+        process.stdout.write('\n');
+        messages.push(currentMessage);
+        return promptUser();
+      }
+
+      next = await stream.next();
     }
 
-    // If reply stream complete, save the message
-    if (part.type !== 'reply.delta' && replyText.length) {
-      messages.push(createReplyMessage({ text: replyText }));
-    }
+    if (response.type === 'tool_calls') {
+      messages.push(response);
 
-    result = await stream.next();
+      // Print tool calls, one per line, with '-' and '←' before the name
+      console.log(chalk.bgGray('\nTool Calls'));
+      for (const call of response.toolCalls) {
+        console.log(
+          chalk.dim(`- ${call.name} <- ${prettySingleLine(call.args)}`)
+        );
+      }
+
+      const resultsMsg = createMessage<ToolResultsMessage>({
+        type: 'tool_results',
+        results: [],
+      });
+
+      for (const call of response.toolCalls) {
+        const { id, name, args } = call;
+        const tool = tools.find((t) => t.name === name);
+
+        if (!tool) {
+          throw new Error(`Unknown tool: ${name}`);
+        }
+
+        resultsMsg.results.push({
+          toolCallId: id,
+          name: name,
+          value: await tool.execute!(args),
+        });
+      }
+
+      messages.push(resultsMsg);
+      // Print tool results, one per line, with '-' and '→' after the name
+      console.log(chalk.bgGray('\nTool Results'));
+      for (const result of resultsMsg.results) {
+        console.log(
+          chalk.dim(`- ${result.name} -> ${prettySingleLine(result.value)}`)
+        );
+      }
+
+      // Add the extra result message & continue
+      next = await stream.next(resultsMsg);
+    }
   }
-  process.stdout.write('\n');
 
   promptUser();
 }
 
-console.log(chalk.italic('Chat with the kernel! Type "exit" to quit.'));
+/**
+ * Pretty-print a value as single-line JSON with extra spaces for readability.
+ * If the value is a string, it will be quoted.
+ */
+function prettySingleLine(val: unknown): string {
+  if (typeof val === 'string') {
+    return '"' + val.replace(/"/g, '"') + '"'; // No need to escape quotes inside single-quoted string
+  }
+  return JSON.stringify(val, null, 2)
+    .replace(/\n/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\{ /g, '{ ')
+    .replace(/ \}/g, ' }');
+}
+
+console.log(
+  chalk.italic(chalk.dim('Chat with the kernel! Type "exit" to quit.'))
+);
 
 promptUser();
