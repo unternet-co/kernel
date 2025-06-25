@@ -73,14 +73,14 @@ async function handleInput(input: string) {
 
   const stream = interpreter.stream(messages);
   let next = await stream.next();
-  let currentMessage: KernelMessage | null = null;
+  let streamingMessage: KernelMessage | null = null;
 
   while (!next.done) {
     const response = next.value;
 
     if (response.type === 'reply.delta') {
-      if (!currentMessage) {
-        currentMessage = {
+      if (response.status === 'created') {
+        streamingMessage = {
           type: 'reply',
           id: response.id,
           createdAt: response.createdAt,
@@ -91,17 +91,14 @@ async function handleInput(input: string) {
       }
 
       if (response.delta.text) {
-        currentMessage.text += response.delta.text;
+        streamingMessage!.text += response.delta.text;
         process.stdout.write(response.delta.text);
       }
 
-      if (response.delta.done) {
+      if (response.status === 'completed') {
         process.stdout.write('\n');
-        messages.push(currentMessage);
-        return promptUser();
+        messages.push(streamingMessage!);
       }
-
-      next = await stream.next();
     }
 
     if (response.type === 'tool_calls') {
@@ -146,7 +143,10 @@ async function handleInput(input: string) {
 
       // Add the extra result message & continue
       next = await stream.next(resultsMsg);
+      continue;
     }
+
+    next = await stream.next();
   }
 
   promptUser();
