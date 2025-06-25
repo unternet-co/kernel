@@ -7,6 +7,8 @@ import {
   ReplyMessage,
   ToolCallsMessage,
   ToolResultsMessage,
+  ToolCall,
+  ToolResult,
 } from '../src/messages.js';
 
 describe('createInputMessage', () => {
@@ -97,10 +99,10 @@ describe('createLogMessage', () => {
 
 describe('createToolCallsMessage', () => {
   it('creates tool calls message with toolCalls array', () => {
-    const toolCalls = [
+    const toolCalls: ToolCall[] = [
       { id: 'call_1', name: 'get_weather', args: { city: 'San Francisco' } },
       { id: 'call_2', name: 'get_time', args: { timezone: 'PST' } },
-    ] as import('../src/messages').ToolCall[];
+    ];
     const message = createMessage<ToolCallsMessage>({
       type: 'tool_calls',
       toolCalls,
@@ -114,7 +116,7 @@ describe('createToolCallsMessage', () => {
 
 describe('createToolResultsMessage', () => {
   it('creates tool results message with results array', () => {
-    const results = [
+    const results: ToolResult[] = [
       {
         toolCallId: 'call_1',
         name: 'get_weather',
@@ -126,7 +128,7 @@ describe('createToolResultsMessage', () => {
         value: { time: '12:00', timezone: 'PST' },
         error: undefined,
       },
-    ] as import('../src/messages').ToolResult[];
+    ];
     const message = createMessage<ToolResultsMessage>({
       type: 'tool_results',
       results,
@@ -138,14 +140,14 @@ describe('createToolResultsMessage', () => {
   });
 
   it('creates tool results message with error in result', () => {
-    const results = [
+    const results: ToolResult[] = [
       {
         toolCallId: 'call_3',
         name: 'get_weather',
         value: {},
         error: 'API rate limit exceeded',
       },
-    ] as import('../src/messages').ToolResult[];
+    ];
     const message = createMessage<ToolResultsMessage>({
       type: 'tool_results',
       results,
