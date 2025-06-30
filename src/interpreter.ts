@@ -3,9 +3,11 @@ import {
   createMessage,
   KernelMessage,
   ToolCallsMessage,
-  BaseMessage,
   ReplyMessage,
   ToolResultsMessage,
+  InputMessage,
+  ReplyMessageDetail,
+  MessageMetadata,
 } from './messages.js';
 import { KernelTool, createToolSet } from './tools.js';
 import { LanguageModel } from './types.js';
@@ -15,7 +17,9 @@ import {
   CoreUserMessage,
   CoreAssistantMessage,
   CoreToolMessage,
+  StreamTextResult,
 } from 'ai';
+import mitt from 'mitt';
 
 export type RenderedMessage =
   | CoreSystemMessage
@@ -28,147 +32,145 @@ interface InterpreterInit {
   tools: KernelTool[];
 }
 
-export interface MessageDelta extends BaseMessage {
-  status: 'created' | 'completed' | 'in_progress';
+export interface MessageDeltaMetadata extends MessageMetadata {
+  final?: true;
 }
 
-export interface ReplyMessageDelta extends MessageDelta {
+export interface ReplyMessageDelta extends MessageDeltaMetadata {
   type: 'reply.delta';
-  delta: {
-    text?: string;
-  };
+  delta: Partial<ReplyMessageDetail>;
 }
 
 export type KernelMessageDelta = ReplyMessageDelta;
 
+type Events = {
+  response: KernelMessageDelta | KernelMessage;
+  idle: undefined;
+  busy: undefined;
+};
+
+type KernelStatus = 'idle' | 'busy';
+
 export class Interpreter {
-  model: LanguageModel;
-  tools: KernelTool[];
+  readonly model: LanguageModel;
+  readonly tools: KernelTool[];
+  public status: KernelStatus = 'idle';
+  private messages = new Map<KernelMessage['id'], KernelMessage>();
+  private shouldStop: boolean = false;
+  private emitter = mitt<Events>();
+  private stream: StreamTextResult<any, any> | null = null;
+  readonly on = this.emitter.on;
 
   constructor({ model, tools }: InterpreterInit) {
     this.model = model;
     this.tools = [...tools];
   }
 
-  async *stream(
-    messages: KernelMessage[]
-  ): AsyncGenerator<KernelMessageDelta | KernelMessage> {
-    // Make a local copy of messages to avoid mutation
-    messages = [...messages];
+  private setStatus(status: KernelStatus) {
+    this.status = status;
+    this.emitter.emit(status);
+  }
 
-    try {
-      const output = streamText({
+  private addMessage(msg: KernelMessage) {
+    this.messages.set(msg.id, msg);
+  }
+
+  public send(msg: InputMessage | ToolResultsMessage) {
+    const startStream = () => {
+      this.addMessage(msg);
+
+      const stream = streamText({
         model: this.model,
-        messages: this.renderMessages(messages),
+        messages: this.renderMessages(),
         tools: createToolSet(this.tools),
       });
 
-      let streamingMessage: KernelMessage | null = null;
+      this.stream = stream;
+      this.start();
+    };
 
-      for await (const part of output.fullStream) {
-        if (part.type === 'finish') {
-          if (streamingMessage) {
-            yield* completeStreamingMessage(streamingMessage);
-            messages.push(streamingMessage);
-            streamingMessage = null;
-          }
-
-          return;
-        }
-
-        if (part.type === 'text-delta') {
-          // Complete & send the prior message, if of a different type
-          if (streamingMessage && streamingMessage.type !== 'reply') {
-            yield* completeStreamingMessage(streamingMessage);
-            messages.push(streamingMessage);
-            streamingMessage = null;
-          }
-
-          // Create a new streaming message
-          if (!streamingMessage) {
-            streamingMessage = createMessage<ReplyMessage>({
-              type: 'reply',
-              text: '',
-            });
-
-            const messageStartDelta: ReplyMessageDelta = {
-              id: streamingMessage.id,
-              createdAt: streamingMessage.createdAt,
-              type: 'reply.delta',
-              status: 'created',
-              delta: {},
-            };
-
-            yield messageStartDelta;
-          }
-
-          const messageDelta: ReplyMessageDelta = {
-            id: streamingMessage.id,
-            createdAt: streamingMessage.createdAt,
-            type: 'reply.delta',
-            status: 'in_progress',
-            delta: { text: part.textDelta },
-          };
-          streamingMessage.text += messageDelta.delta.text;
-
-          yield messageDelta;
-        } else if (part.type === 'error') {
-          console.error('Streaming error:', part.error);
-          throw part.error;
-        } else if (part.type === 'tool-call') {
-          if (streamingMessage) {
-            yield* completeStreamingMessage(streamingMessage);
-            messages.push(streamingMessage);
-            streamingMessage = null;
-          }
-
-          const toolCallMsg = createMessage<ToolCallsMessage>({
-            type: 'tool_calls',
-            toolCalls: [
-              {
-                id: ulid(),
-                name: part.toolName,
-                args: part.args,
-              },
-            ],
-          });
-
-          const resultsMessage = yield toolCallMsg;
-          messages.push(toolCallMsg);
-
-          if (resultsMessage) {
-            messages.push(resultsMessage);
-          } else {
-            if (!resultsMessage) {
-              const errorResultsMessage = createMessage<ToolResultsMessage>({
-                type: 'tool_results',
-                results: toolCallMsg.toolCalls.map((call) => ({
-                  toolCallId: call.id,
-                  name: call.name,
-                  value: null,
-                  error: 'Tool execution failed: no results returned',
-                })),
-              });
-              messages.push(errorResultsMessage);
-            }
-          }
-
-          // Start a new stream with the updated messages
-          // ...and return this one, ending its execution.
-          yield* this.stream(messages);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Error in stream:', error);
-      throw error;
+    if (this.status === 'idle') {
+      startStream();
+    } else {
+      this.shouldStop = true;
+      this.on('idle', startStream);
     }
   }
 
-  private renderMessages(messages: KernelMessage[]): RenderedMessage[] {
+  private async start() {
+    if (!this.stream) throw new Error('Tried to start without a valid stream');
+    let streamingMessage: KernelMessage | null = null;
+
+    for await (const part of this.stream.fullStream) {
+      if (this.shouldStop) {
+        this.stream = null;
+        this.setStatus('idle');
+        return;
+      }
+
+      if (
+        streamingMessage &&
+        (part.type === 'finish' ||
+          (part.type === 'text-delta' && streamingMessage?.type !== 'reply'))
+      ) {
+        this.emitter.emit('response', {
+          ...streamingMessage,
+          type: `${streamingMessage.type}.delta`,
+          final: true,
+          delta: {},
+        });
+        this.emitter.emit('response', streamingMessage);
+      }
+
+      if (part.type === 'text-delta') {
+        if (!streamingMessage) {
+          streamingMessage = createMessage<ReplyMessage>({
+            type: 'reply',
+            text: '',
+          });
+          this.messages.set(streamingMessage.id, streamingMessage);
+        }
+
+        const messageDelta: ReplyMessageDelta = {
+          id: streamingMessage.id,
+          timestamp: streamingMessage.timestamp,
+          type: 'reply.delta',
+          delta: { text: part.textDelta },
+        };
+        streamingMessage.text += messageDelta.delta.text;
+
+        this.emitter.emit('response', messageDelta);
+      }
+
+      if (part.type === 'error') {
+        console.error('Streaming error:', part.error);
+        throw part.error;
+      }
+
+      if (part.type === 'tool-call') {
+        const toolCallsMsg = createMessage<ToolCallsMessage>({
+          type: 'tool_calls',
+          calls: [
+            {
+              id: ulid(),
+              name: part.toolName,
+              args: part.args,
+            },
+          ],
+        });
+
+        this.emitter.emit('response', toolCallsMsg);
+        this.messages.set(toolCallsMsg.id, toolCallsMsg);
+      }
+    }
+
+    this.setStatus('idle');
+  }
+
+  private renderMessages(): RenderedMessage[] {
     const renderedMsgs: RenderedMessage[] = [];
 
-    for (const msg of messages) {
+    for (const msg of this.messages.values()) {
       if (msg.type === 'input' && msg.text?.trim()) {
         renderedMsgs.push({
           role: 'user',
@@ -182,7 +184,7 @@ export class Interpreter {
       } else if (msg.type === 'tool_calls') {
         renderedMsgs.push({
           role: 'assistant',
-          content: msg.toolCalls.map((call) => ({
+          content: msg.calls.map((call) => ({
             type: 'tool-call',
             toolCallId: call.id,
             toolName: call.name, // We need to store this in tool_result messages
@@ -194,9 +196,9 @@ export class Interpreter {
           role: 'tool',
           content: msg.results.map((result) => ({
             type: 'tool-result',
-            toolCallId: result.toolCallId,
-            toolName: result.name, // We need to store this in tool_result messages
-            result: result.value,
+            toolCallId: result.callId,
+            toolName: result.name,
+            result: result.output,
           })),
         });
       }
@@ -204,17 +206,4 @@ export class Interpreter {
 
     return renderedMsgs;
   }
-}
-
-async function* completeStreamingMessage(
-  streamingMessage: KernelMessage
-): AsyncGenerator<KernelMessageDelta | KernelMessage> {
-  yield {
-    id: streamingMessage.id,
-    createdAt: streamingMessage.createdAt,
-    type: `${streamingMessage.type}.delta` as KernelMessageDelta['type'],
-    status: 'completed',
-    delta: {},
-  };
-  yield streamingMessage;
 }

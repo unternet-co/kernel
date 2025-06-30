@@ -16,7 +16,7 @@ export interface FunctionTool {
   name: string;
   description?: string;
   parameters?: JSONSchemaDefinition | ZodSchema;
-  execute?: (args: unknown) => Promise<JSONValue> | JSONValue;
+  execute?: (args: any) => Promise<JSONValue> | JSONValue | AsyncIterator<any>;
 }
 
 export function createToolSet(tools: KernelTool[]): ToolSet {
