@@ -20,6 +20,9 @@ import {
  */
 export function useKernel() {
   const [messages, setMessages] = useState<CliMessage[]>([]);
+  const [currentDirectory, setCurrentDirectory] = useState<string>(
+    SystemProcessor.getShortWorkingDirectory()
+  );
 
   // Initialize interpreter with tools
   const interpreterRef = useRef<Interpreter | null>(null);
@@ -120,6 +123,9 @@ export function useKernel() {
               }
               return updated;
             });
+          } else if (chunk.type === 'cwd_changed') {
+            // Update current directory when it changes
+            setCurrentDirectory(SystemProcessor.getShortWorkingDirectory());
           } else if (chunk.type === 'complete') {
             finalExitCode = chunk.exitCode || 0;
             // Update final exit code
@@ -225,6 +231,9 @@ export function useKernel() {
             }
             return updated;
           });
+        } else if (chunk.type === 'cwd_changed') {
+          // Update current directory when it changes
+          setCurrentDirectory(SystemProcessor.getShortWorkingDirectory());
         } else if (chunk.type === 'complete') {
           // Update final exit code
           setMessages((prev) => {
@@ -254,5 +263,6 @@ export function useKernel() {
   return {
     messages,
     sendMessage,
+    currentDirectory,
   };
 }

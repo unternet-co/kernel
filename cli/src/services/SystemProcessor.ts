@@ -1,6 +1,8 @@
 import { spawn } from 'child_process';
 import { ulid } from 'ulid';
 import { ShellMessage } from '../shellMessages.js';
+import { homedir } from 'os';
+import { join, resolve } from 'path';
 
 /**
  * Strip ANSI escape codes from text
@@ -23,7 +25,44 @@ function stripAnsi(text: string): string {
  * System process handler for executing shell commands
  */
 export class SystemProcessor {
-  // Common commands that are likely to be shell commands
+  private static currentWorkingDirectory: string = process.cwd();
+
+  /**
+   * Get current working directory in short format (with ~ for home)
+   */
+  static getCurrentWorkingDirectory(): string {
+    return this.currentWorkingDirectory;
+  }
+
+  /**
+   * Get current working directory in short format (with ~ for home)
+   */
+  static getShortWorkingDirectory(): string {
+    const cwd = this.currentWorkingDirectory;
+    const home = homedir();
+
+    if (cwd.startsWith(home)) {
+      return cwd.replace(home, '~');
+    }
+
+    return cwd;
+  }
+
+  /**
+   * Update the current working directory
+   */
+  private static updateWorkingDirectory(newDir: string): void {
+    try {
+      // Resolve the path relative to current directory
+      const resolvedPath = resolve(this.currentWorkingDirectory, newDir);
+      this.currentWorkingDirectory = resolvedPath;
+    } catch (error) {
+      // If resolution fails, keep current directory
+      console.warn('Failed to update working directory:', error);
+    }
+  }
+
+  // Unambiguous shell commands that are safe to auto-detect
   private static readonly COMMON_COMMANDS = new Set([
     'ls',
     'pwd',
@@ -33,6 +72,9 @@ export class SystemProcessor {
     'find',
     'ps',
     'top',
+    'git',
+    'node',
+    'npm',
     'kill',
     'cp',
     'mv',
@@ -47,27 +89,11 @@ export class SystemProcessor {
     'sort',
     'uniq',
     'wc',
-    'which',
+    'docker',
     'whereis',
     'df',
     'du',
-    'free',
-    'uptime',
     'whoami',
-    'id',
-    'groups',
-    'curl',
-    'wget',
-    'ping',
-    'ssh',
-    'scp',
-    'rsync',
-    'git',
-    'npm',
-    'node',
-    'python',
-    'pip',
-    'docker',
   ]);
 
   /**
@@ -77,9 +103,14 @@ export class SystemProcessor {
     const trimmed = input.trim();
     if (!trimmed) return false;
 
+    // Check for explicit shell command prefix
+    if (trimmed.startsWith('/')) {
+      return true;
+    }
+
     const firstWord = trimmed.split(/\s+/)[0];
 
-    // Quick check against common commands
+    // Quick check against unambiguous commands
     if (this.COMMON_COMMANDS.has(firstWord)) {
       return true;
     }
@@ -107,12 +138,22 @@ export class SystemProcessor {
    * Execute a shell command and stream the output
    */
   static async *executeCommandStream(command: string): AsyncIterableIterator<{
-    type: 'output' | 'complete';
+    type: 'output' | 'complete' | 'cwd_changed';
     data?: string;
     exitCode?: number;
+    cwd?: string;
   }> {
-    const proc = spawn('sh', ['-c', command], {
+    // Strip leading slash if present (explicit shell command prefix)
+    const actualCommand = command.startsWith('/') ? command.slice(1) : command;
+
+    // Check if this is a cd command
+    const trimmedCommand = actualCommand.trim();
+    const isCdCommand =
+      trimmedCommand.startsWith('cd ') || trimmedCommand === 'cd';
+
+    const proc = spawn('sh', ['-c', actualCommand], {
       stdio: 'pipe',
+      cwd: this.currentWorkingDirectory,
       // Ensure output is unbuffered for better streaming
       env: { ...process.env, PYTHONUNBUFFERED: '1' },
     });
@@ -187,6 +228,30 @@ export class SystemProcessor {
           proc.on('close', (code) => resolve(code || 0));
         }
       });
+
+      // If this was a successful cd command, update our working directory
+      if (isCdCommand && exitCode === 0) {
+        try {
+          // Parse the cd command to get the target directory
+          let targetDir = trimmedCommand.slice(2).trim(); // Remove 'cd'
+
+          if (!targetDir) {
+            // cd with no arguments goes to home directory
+            targetDir = homedir();
+            this.currentWorkingDirectory = targetDir;
+          } else {
+            this.updateWorkingDirectory(targetDir);
+          }
+
+          yield {
+            type: 'cwd_changed',
+            cwd: this.currentWorkingDirectory,
+          };
+        } catch (error) {
+          console.warn('Failed to update working directory after cd:', error);
+        }
+      }
+
       yield { type: 'complete', exitCode };
     }
   }
@@ -213,9 +278,7 @@ export class SystemProcessor {
         timestamp: Date.now(),
         type: 'shell',
         command,
-        output:
-          allOutput.trim() ||
-          (exitCode === 0 ? '(no output)' : '(command failed)'),
+        output: allOutput.trim() || (exitCode === 0 ? '' : '(command failed)'),
         exitCode,
       };
     } catch (error) {
