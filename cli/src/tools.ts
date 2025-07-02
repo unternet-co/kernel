@@ -1,4 +1,4 @@
-import { FunctionTool } from '../../dist';
+import { FunctionTool } from '@unternet/kernel';
 import { z } from 'zod';
 
 export const tools: FunctionTool[] = [

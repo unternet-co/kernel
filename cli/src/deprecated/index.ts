@@ -9,8 +9,8 @@ import {
   ToolResultsMessage,
 } from '@unternet/kernel';
 import 'dotenv/config';
-import { tools } from './tools';
-import { command, printSingleLineJSON } from './utils';
+import { tools } from '../tools.js';
+import { command, printSingleLineJSON } from './utils.js';
 
 export type Command = 'exit' | null;
 
