@@ -56,6 +56,7 @@ export class Interpreter {
   readonly tools: KernelTool[];
   public status: KernelStatus = 'idle';
   private messages = new Map<KernelMessage['id'], KernelMessage>();
+  private messageLimit = parseInt(process.env.KERNEL_MESSAGE_LIMIT || '30');
   private shouldStop: boolean = false;
   private emitter = mitt<Events>();
   private stream: StreamTextResult<any, any> | null = null;
@@ -70,9 +71,16 @@ export class Interpreter {
     this.status = status;
     this.emitter.emit(status);
   }
-
   private addMessage(msg: KernelMessage) {
     this.messages.set(msg.id, msg);
+
+    // Trim old messages if we exceed the limit
+    if (this.messages.size > this.messageLimit) {
+      const oldestKey = this.messages.keys().next().value;
+      if (oldestKey) {
+        this.messages.delete(oldestKey);
+      }
+    }
   }
 
   public send(msg: InputMessage | ToolResultsMessage) {
@@ -86,7 +94,10 @@ export class Interpreter {
       });
 
       this.stream = stream;
-      this.start();
+      this.start().catch((error) => {
+        console.error('Stream processing error:', error);
+        this.setStatus('idle');
+      });
     };
 
     if (this.status === 'idle') {

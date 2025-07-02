@@ -21,7 +21,7 @@ describe('createInputMessage', () => {
     expect(message.type).toBe('input');
     expect(message.text).toBe('Hello world');
     expect(message.id).toBeDefined();
-    expect(message.createdAt).toBeTypeOf('number');
+    expect(message.timestamp).toBeTypeOf('number');
   });
 
   it('creates input message with files', () => {
@@ -98,19 +98,19 @@ describe('createLogMessage', () => {
 });
 
 describe('createToolCallsMessage', () => {
-  it('creates tool calls message with toolCalls array', () => {
-    const toolCalls: ToolCall[] = [
+  it('creates tool calls message with calls array', () => {
+    const calls: ToolCall[] = [
       { id: 'call_1', name: 'get_weather', args: { city: 'San Francisco' } },
       { id: 'call_2', name: 'get_time', args: { timezone: 'PST' } },
     ];
     const message = createMessage<ToolCallsMessage>({
       type: 'tool_calls',
-      toolCalls,
+      calls,
     });
     expect(message.type).toBe('tool_calls');
-    expect(message.toolCalls).toEqual(toolCalls);
+    expect(message.calls).toEqual(calls);
     expect(message.id).toBeDefined();
-    expect(message.createdAt).toBeTypeOf('number');
+    expect(message.timestamp).toBeTypeOf('number');
   });
 });
 
@@ -118,14 +118,14 @@ describe('createToolResultsMessage', () => {
   it('creates tool results message with results array', () => {
     const results: ToolResult[] = [
       {
-        toolCallId: 'call_1',
+        callId: 'call_1',
         name: 'get_weather',
-        value: { temperature: 72, conditions: 'sunny' },
+        output: { temperature: 72, conditions: 'sunny' },
       },
       {
-        toolCallId: 'call_2',
+        callId: 'call_2',
         name: 'get_time',
-        value: { time: '12:00', timezone: 'PST' },
+        output: { time: '12:00', timezone: 'PST' },
         error: undefined,
       },
     ];
@@ -136,15 +136,15 @@ describe('createToolResultsMessage', () => {
     expect(message.type).toBe('tool_results');
     expect(message.results).toEqual(results);
     expect(message.id).toBeDefined();
-    expect(message.createdAt).toBeTypeOf('number');
+    expect(message.timestamp).toBeTypeOf('number');
   });
 
   it('creates tool results message with error in result', () => {
     const results: ToolResult[] = [
       {
-        toolCallId: 'call_3',
+        callId: 'call_3',
         name: 'get_weather',
-        value: {},
+        output: {},
         error: 'API rate limit exceeded',
       },
     ];
@@ -153,6 +153,6 @@ describe('createToolResultsMessage', () => {
       results,
     });
     expect(message.results[0].error).toBe('API rate limit exceeded');
-    expect(message.results[0].value).toEqual({});
+    expect(message.results[0].output).toEqual({});
   });
 });

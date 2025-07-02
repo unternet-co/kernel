@@ -16,6 +16,10 @@
     {
       "title": "Tools",
       "path": "tools"
+    },
+    {
+      "title": "CLI Example",
+      "path": "cli"
     }
   ]
 }

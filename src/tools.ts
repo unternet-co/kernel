@@ -2,14 +2,14 @@ import { JSONValue, Tool, ToolSet } from 'ai';
 import { JSONSchemaDefinition } from './types';
 import { z, ZodSchema } from 'zod';
 
-export type KernelTool = SignalTool | FunctionTool;
+export type KernelTool = FunctionTool; // | SignalTool;
 
-export interface SignalTool {
-  type: 'signal';
-  name: string;
-  description?: string;
-  parameters?: JSONSchemaDefinition | ZodSchema;
-}
+// export interface SignalTool {
+//   type: 'signal';
+//   name: string;
+//   description?: string;
+//   parameters?: JSONSchemaDefinition | ZodSchema;
+// }
 
 export interface FunctionTool {
   type: 'function';
