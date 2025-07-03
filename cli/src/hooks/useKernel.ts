@@ -9,11 +9,7 @@ import {
 import { Interpreter } from '@unternet/kernel';
 import { tools } from '../tools.js';
 import { ShellExecutor } from '../services/ShellExecutor.js';
-import {
-  CliMessage,
-  ShellMessage,
-  shellToToolResult,
-} from '../shellMessages.js';
+import { CliMessage, ShellMessage } from '../shellMessages.js';
 
 /**
  * Hook for managing kernel interactions and message state

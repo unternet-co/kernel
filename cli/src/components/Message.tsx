@@ -15,7 +15,7 @@ export const Message = React.memo(({ msg }: { msg: CliMessage }) => {
   if (msg.type === 'reply' && 'text' in msg) {
     return (
       <Box justifyContent="space-between">
-        <Text color="white">{msg.text}</Text>
+        <Text color="magenta">{msg.text}</Text>
         <Text backgroundColor="magenta" color="black"> Reply </Text>
       </Box>
     );
