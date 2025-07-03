@@ -1,4 +1,4 @@
-export { LanguageModel } from 'ai';
+export { type LanguageModel } from 'ai';
 
 export type JSONValue =
   | string

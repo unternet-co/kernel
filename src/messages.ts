@@ -1,24 +1,9 @@
 import { ulid } from 'ulid';
 import { JSONValue } from './types';
 
-export type KernelMessage =
-  | InputMessage
-  | ReplyMessage
-  | ReasoningMessage
-  | LogMessage
-  | ToolCallsMessage
-  | ToolResultsMessage;
-
-export interface BaseMessage {
+export interface MessageMetadata {
   id: string;
-  createdAt: number;
-  // triggerResponse: 'always' | 'auto' | 'never';
-}
-
-export interface InputMessage extends BaseMessage {
-  type: 'input';
-  text?: string;
-  files?: FileAttachment[];
+  timestamp: number;
 }
 
 export interface FileAttachment {
@@ -27,25 +12,29 @@ export interface FileAttachment {
   mimeType?: string;
 }
 
-export interface ReplyMessage extends BaseMessage {
-  type: 'reply';
+export interface InputMessage extends MessageMetadata {
+  type: 'input';
+  text?: string;
+  files?: FileAttachment[];
+}
+
+export interface ReplyMessageDetail {
   text: string;
 }
 
-export interface ReasoningMessage extends BaseMessage {
+export interface ReplyMessage extends MessageMetadata, ReplyMessageDetail {
+  type: 'reply';
+}
+
+export interface ReasoningMessage extends MessageMetadata {
   type: 'reasoning';
   title: string;
   summary: string;
 }
 
-export interface LogMessage extends BaseMessage {
+export interface LogMessage extends MessageMetadata {
   type: 'log';
   text: string;
-}
-
-export interface ToolCallsMessage extends BaseMessage {
-  type: 'tool_calls';
-  toolCalls: ToolCall[];
 }
 
 export interface ToolCall {
@@ -54,24 +43,38 @@ export interface ToolCall {
   args?: JSONValue;
 }
 
-export interface ToolResultsMessage extends BaseMessage {
+export interface ToolCallsMessage extends MessageMetadata {
+  type: 'tool_calls';
+  calls: ToolCall[];
+}
+
+export interface ToolResult {
+  callId: string;
+  name: string;
+  output: any;
+  error?: string;
+}
+
+export interface ToolResultsMessage extends MessageMetadata {
   type: 'tool_results';
   results: ToolResult[];
 }
 
-export interface ToolResult {
-  toolCallId: string;
-  name: string; // Tool name for AI SDK compatibility
-  value: JSONValue;
-  error?: string;
-}
+export type KernelMessage =
+  | InputMessage
+  | ReplyMessage
+  | ReasoningMessage
+  | LogMessage
+  | ToolCallsMessage
+  | ToolResultsMessage;
 
-export function createMessage<T extends BaseMessage>(
-  opts: Omit<T, 'id' | 'createdAt'>
+// Message creator
+export function createMessage<T extends KernelMessage>(
+  opts: Omit<T, 'id' | 'timestamp'>
 ): T {
   return {
     id: ulid(),
-    createdAt: Date.now(),
+    timestamp: Date.now(),
     ...opts,
   } as T;
 }

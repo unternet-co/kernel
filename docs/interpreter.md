@@ -1,10 +1,10 @@
 # Interpreter
 
-The `Interpreter` class uses a language model to respond to inputs. It can be extended with tools to perform actions.
+The `Interpreter` class uses a language model to respond to inputs with real-time streaming. It can be extended with tools to perform actions.
 
 ## Usage
 
-The `Interpreter` provides a streaming interface for receiving messages from the model.
+The `Interpreter` provides an event-driven interface for receiving messages from the model.
 
 ```typescript
 import { openai } from '@ai-sdk/openai';
@@ -14,28 +14,37 @@ const interpreter = new Interpreter({
   model: openai('gpt-4o') 
 });
 
-// Helper generates a unique ID and timestamp for each message
-const messages = [
-  createMessage<InputMessage>({ type: 'input', text: 'Hello!' })
-];
-
-// The stream yields message deltas and full messages
-for await (const message of interpreter.stream(messages)) {
-  if (message.type === 'reply.delta' && message.text) {
-    process.stdout.write(message.text);
+// Listen for streaming responses
+interpreter.on('response', (message) => {
+  if (message.type === 'reply.delta') {
+    process.stdout.write(message.delta.text || '');
+  } else if (message.type === 'reply') {
+    console.log('\nComplete message:', message.text);
   }
-}
+});
+
+// Or with automatic cleanup
+const unsubscribe = interpreter.on('response', handler);
+// later...
+unsubscribe();
+
+// Send a message to start the conversation
+const inputMessage = createMessage<InputMessage>({ 
+  type: 'input', 
+  text: 'Hello!' 
+});
+
+interpreter.send(inputMessage);
 ```
 
-Messages follow the format as described in [messages](./messages.md). For information on how to use tools, see [tools](./tools.md).
+Messages follow the format described in [messages](./messages.md). For information on how to use tools, see [tools](./tools.md).
 
 ## Streaming Delta Messages
 
-When the kernel streams a response, it emits a sequence of delta messages. Each delta message represents a partial update to a message object (such as a reply, but potentially other types in the future). Deltas include a `status` field to indicate their phase in the stream:
+When the kernel streams a response, it emits a sequence of delta messages. Each delta message represents a partial update to a message object. Deltas include a `final` field to indicate the last chunk:
 
-- `status: 'created'` — The first chunk of a new message. Use this to initialize a new item in your UI or data store.
-- `status: 'in_progress'` — Intermediate chunks. Append or merge the `delta` payload into the current item.
-- `status: 'completed'` — The final chunk. Finalize the item (e.g., mark as complete, stop loading spinners).
+- `final: undefined` — Intermediate chunks. Append or merge the `delta` payload into the current item.
+- `final: true` — The final chunk. Finalize the item (e.g., mark as complete, stop loading spinners).
 
 ### Example (`reply.delta`)
 
@@ -43,25 +52,23 @@ When the kernel streams a response, it emits a sequence of delta messages. Each 
 {
   "type": "reply.delta",
   "id": "msg_123",
-  "createdAt": 1720000000,
-  "status": "created",
+  "timestamp": 1720000000,
   "delta": { "text": "Hello" }
 }
 {
   "type": "reply.delta",
-  "id": "msg_123",
-  "createdAt": 1720000000,
-  "status": "in_progress",
+  "id": "msg_123", 
+  "timestamp": 1720000000,
   "delta": { "text": ", world!" }
 }
 {
   "type": "reply.delta",
   "id": "msg_123",
-  "createdAt": 1720000000,
-  "status": "completed",
+  "timestamp": 1720000000,
+  "final": true,
   "delta": {}
 }
 ```
 
-- All deltas for a message share the same `id` and `createdAt`.
+- All deltas for a message share the same `id` and `timestamp`.
 - The `delta` object contains the partial update (e.g., `text` for replies, but may include other fields for other message types).
