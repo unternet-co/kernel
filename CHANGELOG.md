@@ -2,10 +2,7 @@
 
 # [0.5.0](https://github.com/unternet-co/kernel/compare/v0.4.0...v0.5.0) (2025-07-03)
 
-
-### Features
-
-* add async messaging ([#42](https://github.com/unternet-co/kernel/issues/42)) ([cd6d278](https://github.com/unternet-co/kernel/commit/cd6d2784996b2ab3cb850b8e4645899bc2759501))
+* Add async messaging ([#42](https://github.com/unternet-co/kernel/issues/42)) ([cd6d278](https://github.com/unternet-co/kernel/commit/cd6d2784996b2ab3cb850b8e4645899bc2759501))
 
 ## [0.4.0](https://github.com/unternet-co/kernel/compare/v0.3.0...v0.4.0) (2025-06-25)
 
