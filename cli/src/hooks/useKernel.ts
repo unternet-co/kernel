@@ -5,10 +5,10 @@ import {
   createMessage,
   InputMessage,
   ToolResultsMessage,
-} from '../../../dist/messages.js';
-import { Interpreter } from '../../../dist/interpreter.js';
+} from '@unternet/kernel';
+import { Interpreter } from '@unternet/kernel';
 import { tools } from '../tools.js';
-import { SystemProcessor } from '../services/SystemProcessor.js';
+import { ShellExecutor } from '../services/ShellExecutor.js';
 import {
   CliMessage,
   ShellMessage,
@@ -19,16 +19,16 @@ import {
  * Hook for managing kernel interactions and message state
  */
 export function useKernel() {
+  // Store all messages for display - but we could optimize this later
   const [messages, setMessages] = useState<CliMessage[]>([]);
   const [currentDirectory, setCurrentDirectory] = useState<string>(
-    SystemProcessor.getShortWorkingDirectory()
+    ShellExecutor.getShortWorkingDirectory()
   );
 
   // Initialize interpreter with tools
   const interpreterRef = useRef<Interpreter | null>(null);
   if (!interpreterRef.current) {
     const model = openai('gpt-4o');
-    // Include all tools now, including shell_command
     interpreterRef.current = new Interpreter({ model, tools });
   }
   const interpreter = interpreterRef.current;
@@ -99,12 +99,10 @@ export function useKernel() {
         };
         addMessage(initialShellMsg);
 
-        // Stream the output using SystemProcessor
+        // Stream the output using ShellExecutor
         let allOutput = '';
         let finalExitCode = 0;
-        for await (const chunk of SystemProcessor.executeCommandStream(
-          command
-        )) {
+        for await (const chunk of ShellExecutor.executeCommandStream(command)) {
           if (chunk.type === 'output' && chunk.data) {
             allOutput += chunk.data;
 
@@ -125,7 +123,7 @@ export function useKernel() {
             });
           } else if (chunk.type === 'cwd_changed') {
             // Update current directory when it changes
-            setCurrentDirectory(SystemProcessor.getShortWorkingDirectory());
+            setCurrentDirectory(ShellExecutor.getShortWorkingDirectory());
           } else if (chunk.type === 'complete') {
             finalExitCode = chunk.exitCode || 0;
             // Update final exit code
@@ -170,7 +168,6 @@ export function useKernel() {
     // Always send the tool results message, even if empty
     addMessage(resultsMsg);
     interpreter.send(resultsMsg);
-    console.log('Sent tool results:', resultsMsg);
   };
 
   useEffect(() => {
@@ -195,7 +192,7 @@ export function useKernel() {
     });
     addMessage(inputMsg);
 
-    if (await SystemProcessor.isShellCommand(input)) {
+    if (await ShellExecutor.isShellCommand(input)) {
       // If shell command, execute with streaming
       const shellMsgId = `shell-${Date.now()}`;
 
@@ -212,7 +209,7 @@ export function useKernel() {
 
       // Stream the output
       let allOutput = '';
-      for await (const chunk of SystemProcessor.executeCommandStream(input)) {
+      for await (const chunk of ShellExecutor.executeCommandStream(input)) {
         if (chunk.type === 'output' && chunk.data) {
           allOutput += chunk.data;
 
@@ -233,7 +230,7 @@ export function useKernel() {
           });
         } else if (chunk.type === 'cwd_changed') {
           // Update current directory when it changes
-          setCurrentDirectory(SystemProcessor.getShortWorkingDirectory());
+          setCurrentDirectory(ShellExecutor.getShortWorkingDirectory());
         } else if (chunk.type === 'complete') {
           // Update final exit code
           setMessages((prev) => {

@@ -23,6 +23,11 @@ interpreter.on('response', (message) => {
   }
 });
 
+// Or with automatic cleanup
+const unsubscribe = interpreter.on('response', handler);
+// later...
+unsubscribe();
+
 // Send a message to start the conversation
 const inputMessage = createMessage<InputMessage>({ 
   type: 'input', 

@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import { ulid } from 'ulid';
 import { ShellMessage } from '../shellMessages.js';
 import { homedir } from 'os';
-import { join, resolve } from 'path';
+import { resolve } from 'path';
 
 /**
  * Strip ANSI escape codes from text
@@ -22,9 +22,9 @@ function stripAnsi(text: string): string {
 }
 
 /**
- * System process handler for executing shell commands
+ * Shell command executor with streaming output support
  */
-export class SystemProcessor {
+export class ShellExecutor {
   private static currentWorkingDirectory: string = process.cwd();
 
   /**

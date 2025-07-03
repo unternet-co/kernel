@@ -19,7 +19,7 @@ import {
   CoreToolMessage,
   StreamTextResult,
 } from 'ai';
-import mitt from 'mitt';
+import { Emitter } from './emitter.js';
 
 export type RenderedMessage =
   | CoreSystemMessage
@@ -51,26 +51,26 @@ type Events = {
 
 type KernelStatus = 'idle' | 'busy';
 
-export class Interpreter {
+export class Interpreter extends Emitter<Events> {
   readonly model: LanguageModel;
   readonly tools: KernelTool[];
   public status: KernelStatus = 'idle';
   private messages = new Map<KernelMessage['id'], KernelMessage>();
   private messageLimit = parseInt(process.env.KERNEL_MESSAGE_LIMIT || '30');
   private shouldStop: boolean = false;
-  private emitter = mitt<Events>();
   private stream: StreamTextResult<any, any> | null = null;
-  readonly on = this.emitter.on;
 
   constructor({ model, tools }: InterpreterInit) {
+    super();
     this.model = model;
     this.tools = [...tools];
   }
 
   private setStatus(status: KernelStatus) {
     this.status = status;
-    this.emitter.emit(status);
+    this.emit(status);
   }
+
   private addMessage(msg: KernelMessage) {
     this.messages.set(msg.id, msg);
 
@@ -85,6 +85,8 @@ export class Interpreter {
 
   public send(msg: InputMessage | ToolResultsMessage) {
     const startStream = () => {
+      this.off('idle', startStream); // Remove the listener
+
       this.addMessage(msg);
 
       const stream = streamText({
@@ -94,10 +96,8 @@ export class Interpreter {
       });
 
       this.stream = stream;
-      this.start().catch((error) => {
-        console.error('Stream processing error:', error);
-        this.setStatus('idle');
-      });
+
+      this.start();
     };
 
     if (this.status === 'idle') {
@@ -110,11 +110,13 @@ export class Interpreter {
 
   private async start() {
     if (!this.stream) throw new Error('Tried to start without a valid stream');
+    this.setStatus('busy');
     let streamingMessage: KernelMessage | null = null;
 
     for await (const part of this.stream.fullStream) {
       if (this.shouldStop) {
         this.stream = null;
+        this.shouldStop = false;
         this.setStatus('idle');
         return;
       }
@@ -124,13 +126,13 @@ export class Interpreter {
         (part.type === 'finish' ||
           (part.type === 'text-delta' && streamingMessage?.type !== 'reply'))
       ) {
-        this.emitter.emit('response', {
+        this.emit('response', {
           ...streamingMessage,
           type: `${streamingMessage.type}.delta`,
           final: true,
           delta: {},
         });
-        this.emitter.emit('response', streamingMessage);
+        this.emit('response', streamingMessage);
       }
 
       if (part.type === 'text-delta') {
@@ -150,7 +152,7 @@ export class Interpreter {
         };
         streamingMessage.text += messageDelta.delta.text;
 
-        this.emitter.emit('response', messageDelta);
+        this.emit('response', messageDelta);
       }
 
       if (part.type === 'error') {
@@ -170,7 +172,7 @@ export class Interpreter {
           ],
         });
 
-        this.emitter.emit('response', toolCallsMsg);
+        this.emit('response', toolCallsMsg);
         this.messages.set(toolCallsMsg.id, toolCallsMsg);
       }
     }

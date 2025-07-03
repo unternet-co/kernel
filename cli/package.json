@@ -4,7 +4,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "vite-node -w ./src/ui.tsx"
+    "dev": "vite-node -w ./src/index.tsx"
   },
   "author": "",
   "license": "ISC",
