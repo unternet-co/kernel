@@ -8,28 +8,18 @@ import {
   InputMessage,
   ReplyMessageDetail,
   MessageMetadata,
+  SystemMessage,
+  renderMessages,
 } from './messages.js';
 import { KernelTool, createToolSet } from './tools.js';
 import { LanguageModel } from './types.js';
-import {
-  streamText,
-  CoreSystemMessage,
-  CoreUserMessage,
-  CoreAssistantMessage,
-  CoreToolMessage,
-  StreamTextResult,
-} from 'ai';
+import { streamText, StreamTextResult } from 'ai';
 import { Emitter } from './emitter.js';
-
-export type RenderedMessage =
-  | CoreSystemMessage
-  | CoreUserMessage
-  | CoreAssistantMessage
-  | CoreToolMessage;
 
 interface InterpreterInit {
   model: LanguageModel;
-  tools: KernelTool[];
+  tools?: KernelTool[];
+  prompts?: InterpreterPrompts;
 }
 
 export interface MessageDeltaMetadata extends MessageMetadata {
@@ -51,19 +41,36 @@ type Events = {
 
 type KernelStatus = 'idle' | 'busy';
 
+interface InterpreterPrompts {
+  system: () => string;
+}
+
+const defaultPrompts = {
+  system: () => 'You are an intelligent computer operating system.',
+};
+
 export class Interpreter extends Emitter<Events> {
   readonly model: LanguageModel;
-  readonly tools: KernelTool[];
   public status: KernelStatus = 'idle';
+  readonly tools: KernelTool[] = [];
+  private prompts: InterpreterPrompts = defaultPrompts;
   private messages = new Map<KernelMessage['id'], KernelMessage>();
   private messageLimit = parseInt(process.env.KERNEL_MESSAGE_LIMIT || '30');
   private shouldStop: boolean = false;
   private stream: StreamTextResult<any, any> | null = null;
 
-  constructor({ model, tools }: InterpreterInit) {
+  constructor({ model, tools, prompts }: InterpreterInit) {
     super();
     this.model = model;
-    this.tools = [...tools];
+    if (tools) this.tools = tools;
+    if (prompts) this.prompts = { ...this.prompts, ...prompts };
+
+    const systemMsg = createMessage<SystemMessage>({
+      type: 'system',
+      text: this.prompts.system(),
+    });
+
+    this.messages.set(systemMsg.id, systemMsg);
   }
 
   private setStatus(status: KernelStatus) {
@@ -91,7 +98,7 @@ export class Interpreter extends Emitter<Events> {
 
       const stream = streamText({
         model: this.model,
-        messages: this.renderMessages(),
+        messages: renderMessages(this.messages),
         tools: createToolSet(this.tools),
       });
 
@@ -178,45 +185,5 @@ export class Interpreter extends Emitter<Events> {
     }
 
     this.setStatus('idle');
-  }
-
-  private renderMessages(): RenderedMessage[] {
-    const renderedMsgs: RenderedMessage[] = [];
-
-    for (const msg of this.messages.values()) {
-      if (msg.type === 'input' && msg.text?.trim()) {
-        renderedMsgs.push({
-          role: 'user',
-          content: msg.text,
-        });
-      } else if (msg.type === 'reply' && msg.text?.trim()) {
-        renderedMsgs.push({
-          role: 'assistant',
-          content: msg.text,
-        });
-      } else if (msg.type === 'tool_calls') {
-        renderedMsgs.push({
-          role: 'assistant',
-          content: msg.calls.map((call) => ({
-            type: 'tool-call',
-            toolCallId: call.id,
-            toolName: call.name, // We need to store this in tool_result messages
-            args: call.args,
-          })),
-        });
-      } else if (msg.type === 'tool_results') {
-        renderedMsgs.push({
-          role: 'tool',
-          content: msg.results.map((result) => ({
-            type: 'tool-result',
-            toolCallId: result.callId,
-            toolName: result.name,
-            result: result.output,
-          })),
-        });
-      }
-    }
-
-    return renderedMsgs;
   }
 }
