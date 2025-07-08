@@ -115,8 +115,7 @@ export class ShellExecutor {
       return true;
     }
 
-    // Check if command exists using 'which'
-    return this.commandExists(firstWord);
+    return false;
   }
 
   /**
