@@ -1,32 +1,47 @@
 import { FunctionTool } from '@unternet/kernel';
 import { z } from 'zod';
+import { ShellExecutor } from './services/ShellExecutor.js';
 
 export const tools: FunctionTool[] = [
   {
     type: 'function',
     name: 'get_weather',
-    description: 'Get the weather for the current location',
+    description: 'Get the weather for the current location (fake)',
     execute: () => 'Mild & sunny.',
+  },
+  {
+    type: 'function',
+    name: 'deep_research',
+    description: 'Perform a deep research task.',
   },
   {
     type: 'function',
     name: 'shell_command',
     description: "Run a bash command in the user's shell",
     parameters: z.object({ command: z.string() }),
-    execute: async function* (args: any) {
+    execute: async (args: any) => {
       const command = args.command as string;
-      const { spawn } = await import('child_process');
-      const proc = spawn(command, { shell: true });
-      for await (const chunk of proc.stdout) {
-        yield { type: 'stdout', data: chunk.toString() };
-      }
-      for await (const chunk of proc.stderr) {
-        yield { type: 'stderr', data: chunk.toString() };
-      }
-      const exitCode = await new Promise((resolve) =>
-        proc.on('close', resolve)
+      const result = await ShellExecutor.executeCommand(command);
+      return (
+        result.output ||
+        (result.exitCode === 0 ? '(no output)' : '(command failed)')
       );
-      yield { type: 'exit', code: exitCode };
+    },
+  },
+  {
+    type: 'function',
+    name: 'apple_script',
+    description:
+      'Execute AppleScript for macOS system automation and app control',
+    parameters: z.object({ script: z.string() }),
+    execute: async (args: any) => {
+      const script = args.script as string;
+      const command = `osascript -e '${script.replace(/'/g, "'\\''")}'`;
+      const result = await ShellExecutor.executeCommand(command);
+      return (
+        result.output ||
+        (result.exitCode === 0 ? '(no output)' : '(script failed)')
+      );
     },
   },
 ];

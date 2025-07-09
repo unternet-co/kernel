@@ -9,7 +9,7 @@ import {
 import { Interpreter } from '@unternet/kernel';
 import { tools } from '../tools.js';
 import { ShellExecutor } from '../services/ShellExecutor.js';
-import { CliMessage, ShellMessage } from '../shellMessages.js';
+import { CliMessage } from '../shell-messages.js';
 
 /**
  * Hook for managing kernel interactions and message state
@@ -25,7 +25,14 @@ export function useKernel() {
   const interpreterRef = useRef<Interpreter | null>(null);
   if (!interpreterRef.current) {
     const model = openai('gpt-4o');
-    interpreterRef.current = new Interpreter({ model, tools });
+    interpreterRef.current = new Interpreter({
+      model,
+      tools,
+      prompts: {
+        system: () =>
+          `You are an intelligent computer operating system, operating in a shell environment. If a shell command is executed, its output will be shown directly to the user, so you don't need to respond further. Use the stop signal tool to stop output.`,
+      },
+    });
   }
   const interpreter = interpreterRef.current;
 
@@ -79,89 +86,20 @@ export function useKernel() {
         throw new Error(`Unknown tool: ${name}`);
       }
 
+      // Execute the tool and add result
+      resultsMsg.results.push({
+        callId: id,
+        name: name,
+        output: await tool.execute!(args),
+      });
+
+      // Update current directory if this was a shell command (cd could have changed it)
       if (name === 'shell_command') {
-        // Handle shell command specially - don't send results back to model
-        const command = args.command as string;
-        const shellMsgId = `shell-${Date.now()}`;
-
-        // Add initial shell message
-        const initialShellMsg: ShellMessage = {
-          id: shellMsgId,
-          type: 'shell',
-          command: command,
-          output: '',
-          exitCode: 0,
-          timestamp: Date.now(),
-        };
-        addMessage(initialShellMsg);
-
-        // Stream the output using ShellExecutor
-        let allOutput = '';
-        let finalExitCode = 0;
-        for await (const chunk of ShellExecutor.executeCommandStream(command)) {
-          if (chunk.type === 'output' && chunk.data) {
-            allOutput += chunk.data;
-
-            // Update the shell message with new output
-            setMessages((prev) => {
-              const updated = [...prev];
-              const shellMsgIndex = updated.findIndex(
-                (msg) => msg.id === shellMsgId
-              );
-              if (shellMsgIndex >= 0) {
-                const shellMsg = updated[shellMsgIndex] as ShellMessage;
-                updated[shellMsgIndex] = {
-                  ...shellMsg,
-                  output: allOutput,
-                };
-              }
-              return updated;
-            });
-          } else if (chunk.type === 'cwd_changed') {
-            // Update current directory when it changes
-            setCurrentDirectory(ShellExecutor.getShortWorkingDirectory());
-          } else if (chunk.type === 'complete') {
-            finalExitCode = chunk.exitCode || 0;
-            // Update final exit code
-            setMessages((prev) => {
-              const updated = [...prev];
-              const shellMsgIndex = updated.findIndex(
-                (msg) => msg.id === shellMsgId
-              );
-              if (shellMsgIndex >= 0) {
-                const shellMsg = updated[shellMsgIndex] as ShellMessage;
-                updated[shellMsgIndex] = {
-                  ...shellMsg,
-                  exitCode: finalExitCode,
-                  output:
-                    allOutput.trim() ||
-                    (finalExitCode === 0 ? '(no output)' : '(command failed)'),
-                };
-              }
-              return updated;
-            });
-          }
-        }
-
-        // Add the actual command output to the tool results
-        resultsMsg.results.push({
-          callId: id,
-          name: name,
-          output:
-            allOutput.trim() ||
-            (finalExitCode === 0 ? '(no output)' : '(command failed)'),
-        });
-      } else {
-        // Handle other tools normally
-        resultsMsg.results.push({
-          callId: id,
-          name: name,
-          output: await tool.execute!(args),
-        });
+        setCurrentDirectory(ShellExecutor.getShortWorkingDirectory());
       }
     }
 
-    // Always send the tool results message, even if empty
+    // Always send the tool results message
     addMessage(resultsMsg);
     interpreter.send(resultsMsg);
   };
@@ -188,69 +126,7 @@ export function useKernel() {
     });
     addMessage(inputMsg);
 
-    if (await ShellExecutor.isShellCommand(input)) {
-      // If shell command, execute with streaming
-      const shellMsgId = `shell-${Date.now()}`;
-
-      // Add initial shell message
-      const initialShellMsg: ShellMessage = {
-        id: shellMsgId,
-        type: 'shell',
-        command: input,
-        output: '',
-        exitCode: 0,
-        timestamp: Date.now(),
-      };
-      addMessage(initialShellMsg);
-
-      // Stream the output
-      let allOutput = '';
-      for await (const chunk of ShellExecutor.executeCommandStream(input)) {
-        if (chunk.type === 'output' && chunk.data) {
-          allOutput += chunk.data;
-
-          // Update the shell message with new output
-          setMessages((prev) => {
-            const updated = [...prev];
-            const shellMsgIndex = updated.findIndex(
-              (msg) => msg.id === shellMsgId
-            );
-            if (shellMsgIndex >= 0) {
-              const shellMsg = updated[shellMsgIndex] as ShellMessage;
-              updated[shellMsgIndex] = {
-                ...shellMsg,
-                output: allOutput,
-              };
-            }
-            return updated;
-          });
-        } else if (chunk.type === 'cwd_changed') {
-          // Update current directory when it changes
-          setCurrentDirectory(ShellExecutor.getShortWorkingDirectory());
-        } else if (chunk.type === 'complete') {
-          // Update final exit code
-          setMessages((prev) => {
-            const updated = [...prev];
-            const shellMsgIndex = updated.findIndex(
-              (msg) => msg.id === shellMsgId
-            );
-            if (shellMsgIndex >= 0) {
-              const shellMsg = updated[shellMsgIndex] as ShellMessage;
-              updated[shellMsgIndex] = {
-                ...shellMsg,
-                exitCode: chunk.exitCode || 0,
-                output:
-                  allOutput.trim() ||
-                  (chunk.exitCode === 0 ? '(no output)' : '(command failed)'),
-              };
-            }
-            return updated;
-          });
-        }
-      }
-    } else {
-      interpreter.send(inputMsg);
-    }
+    interpreter.send(inputMsg);
   };
 
   return {

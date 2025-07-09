@@ -1,6 +1,6 @@
 import { spawn } from 'child_process';
 import { ulid } from 'ulid';
-import { ShellMessage } from '../shellMessages.js';
+import { ShellMessage } from '../shell-messages.js';
 import { homedir } from 'os';
 import { resolve } from 'path';
 
@@ -70,8 +70,6 @@ export class ShellExecutor {
     'cat',
     'grep',
     'find',
-    'ps',
-    'top',
     'git',
     'node',
     'npm',

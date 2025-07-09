@@ -3,6 +3,7 @@ import { Box, Text } from 'ink';
 import TextInput from 'ink-text-input';
 import { useKernel } from '../hooks/useKernel.js';
 import { Message } from './Message.js';
+import { tools } from '../tools.js';
 
 export const App = () => {
   const { columns, rows } = process.stdout;
@@ -35,8 +36,7 @@ export const App = () => {
     <Box paddingX={2} paddingBottom={1}>
       <Text color="cyan" dimColor>
         Available AI tools:{'\n'}
-        ❋ get_weather - Get current weather information{'\n'}
-        ❋ shell_command - Execute commands in your system shell
+        {tools.map(tool => `❋ ${tool.name} - ${tool.description}`).join('\n')}
       </Text>
     </Box>
     <Box paddingX={1}flexGrow={1} flexDirection="column-reverse">

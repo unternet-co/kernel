@@ -19,7 +19,7 @@ import { Emitter } from './emitter.js';
 interface InterpreterInit {
   model: LanguageModel;
   tools?: KernelTool[];
-  prompts?: InterpreterPrompts;
+  prompts?: Partial<InterpreterPrompts>;
 }
 
 export interface MessageDeltaMetadata extends MessageMetadata {
@@ -78,23 +78,11 @@ export class Interpreter extends Emitter<Events> {
     this.emit(status);
   }
 
-  private addMessage(msg: KernelMessage) {
-    this.messages.set(msg.id, msg);
-
-    // Trim old messages if we exceed the limit
-    if (this.messages.size > this.messageLimit) {
-      const oldestKey = this.messages.keys().next().value;
-      if (oldestKey) {
-        this.messages.delete(oldestKey);
-      }
-    }
-  }
-
   public send(msg: InputMessage | ToolResultsMessage) {
     const startStream = () => {
       this.off('idle', startStream); // Remove the listener
 
-      this.addMessage(msg);
+      this.messages.set(msg.id, msg);
 
       const stream = streamText({
         model: this.model,
@@ -103,7 +91,6 @@ export class Interpreter extends Emitter<Events> {
       });
 
       this.stream = stream;
-
       this.start();
     };
 
