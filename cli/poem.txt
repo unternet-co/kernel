@@ -1,0 +1,19 @@
+In the realm of code where changes drift,
+Lies the magic of the git diff.
+Lines of text, both old and new,
+In colors red and green, they view.
+
+A symphony of change, a coder's gift,
+To see what’s altered, what’s adrift.
+With every commit, a story told,
+In the diff, the secrets unfold.
+
+A line removed, a line replaced,
+In the diff, the past is traced.
+A journey through the code's own tale,
+In every diff, the details prevail.
+
+So cherish the diff, this humble guide,
+In the world of code, it’s our trusted side.
+For in its lines, both terse and brief,
+Lies the essence of our belief.
