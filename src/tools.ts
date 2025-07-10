@@ -1,8 +1,8 @@
-import { JSONValue, Tool, ToolSet } from 'ai';
+import { JSONValue, ToolSet } from 'ai';
 import { JSONSchemaDefinition } from './types';
 import { z, ZodSchema } from 'zod';
 
-export type KernelTool = FunctionTool; // | SignalTool;
+export type Tool = FunctionTool; // | SignalTool;
 
 // export interface SignalTool {
 //   type: 'signal';
@@ -19,7 +19,7 @@ export interface FunctionTool {
   execute?: (args: any) => Promise<JSONValue> | JSONValue | AsyncIterator<any>;
 }
 
-export function createToolSet(tools: KernelTool[]): ToolSet {
+export function renderTools(tools: Tool[]): ToolSet {
   const toolset: ToolSet = {};
 
   for (const tool of tools) {
@@ -27,7 +27,7 @@ export function createToolSet(tools: KernelTool[]): ToolSet {
       toolset[tool.name] = {
         description: tool.description,
         parameters: tool.parameters || z.object({}),
-      } as Tool;
+      };
     }
   }
 

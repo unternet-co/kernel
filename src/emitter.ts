@@ -7,7 +7,7 @@ export class Emitter<T extends Record<string, any>> {
   private emitter: MittEmitter<T> = mitt<T>();
 
   /**
-   * Subscribe to an event and return an unsubscribe function
+   * Subscribe to an event & return an unsubscribe function
    */
   readonly on = <K extends keyof T>(
     type: K,
@@ -15,6 +15,22 @@ export class Emitter<T extends Record<string, any>> {
   ): (() => void) => {
     this.emitter.on(type, handler);
     return () => this.emitter.off(type, handler);
+  };
+
+  /**
+   * Subscribe to an event once and return an unsubscribe function
+   */
+  readonly once = <K extends keyof T>(
+    type: K,
+    handler: (event: T[K]) => void
+  ): (() => void) => {
+    const wrappedHandler = (event: T[K]) => {
+      handler(event);
+      this.emitter.off(type, wrappedHandler);
+    };
+
+    this.emitter.on(type, wrappedHandler);
+    return () => this.emitter.off(type, wrappedHandler);
   };
 
   /**

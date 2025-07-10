@@ -13,7 +13,7 @@ type ExecutionFunction = () =>
   | Promise<JSONValue>
   | AsyncIterator<JSONValue>;
 
-export class ProcessRuntime extends Emitter<RuntimeEvents> {
+export class Runtime extends Emitter<RuntimeEvents> {
   private processes = new Map<ProcessContainer['id'], ProcessContainer>();
 
   exec(fn: ExecutionFunction): ProcessContainer | JSONValue {

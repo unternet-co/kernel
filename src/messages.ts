@@ -7,7 +7,7 @@ import {
   CoreUserMessage,
 } from 'ai';
 
-export type KernelMessage =
+export type Message =
   | SystemMessage
   | InputMessage
   | ReplyMessage
@@ -64,7 +64,7 @@ export interface ToolCall {
 }
 
 export interface ToolCallsMessage extends MessageMetadata {
-  type: 'tool_calls';
+  type: 'tool-calls';
   calls: ToolCall[];
 }
 
@@ -76,11 +76,11 @@ export interface ToolResult {
 }
 
 export interface ToolResultsMessage extends MessageMetadata {
-  type: 'tool_results';
+  type: 'tool-results';
   results: ToolResult[];
 }
 
-export function createMessage<T extends KernelMessage>(
+export function createMessage<T extends Message>(
   opts: Omit<T, 'id' | 'timestamp'>
 ): T {
   return {
@@ -96,12 +96,10 @@ export type RenderedMessage =
   | CoreAssistantMessage
   | CoreToolMessage;
 
-export function renderMessages(
-  msgs: Map<KernelMessage['id'], KernelMessage>
-): RenderedMessage[] {
+export function renderMessages(msgs: Message[]): RenderedMessage[] {
   const renderedMsgs: RenderedMessage[] = [];
 
-  for (const msg of msgs.values()) {
+  for (const msg of msgs) {
     if (msg.type === 'input' && msg.text?.trim()) {
       renderedMsgs.push({
         role: 'user',
@@ -123,7 +121,7 @@ export function renderMessages(
       });
     }
 
-    if (msg.type === 'tool_calls') {
+    if (msg.type === 'tool-calls') {
       renderedMsgs.push({
         role: 'assistant',
         content: msg.calls.map((call) => ({
@@ -135,7 +133,7 @@ export function renderMessages(
       });
     }
 
-    if (msg.type === 'tool_results') {
+    if (msg.type === 'tool-results') {
       renderedMsgs.push({
         role: 'tool',
         content: msg.results.map((result) => ({
