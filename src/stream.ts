@@ -4,28 +4,25 @@ import {
   Message,
   ToolCallsMessage,
   ReplyMessage,
-  ReplyMessageDetail,
-  MessageMetadata,
   renderMessages,
+  MessageMetadata,
 } from './messages.js';
 import { Tool, renderTools } from './tools.js';
 import { LanguageModel } from './types.js';
 import { streamText } from 'ai';
 
-export interface MessageDeltaMetadata extends MessageMetadata {
-  final?: true;
-}
-
-export interface ReplyMessageDelta extends MessageDeltaMetadata {
-  type: 'reply.delta';
-  delta: Partial<ReplyMessageDetail>;
-}
-
 export type MessageDelta = ReplyMessageDelta;
+
+export interface ReplyMessageDelta extends MessageMetadata {
+  type: 'reply.delta';
+  id: Message['id'];
+  final?: boolean;
+  delta: Partial<Omit<ReplyMessage, 'type' | keyof MessageMetadata>>;
+}
 
 export type MessageStream = AsyncGenerator<Message | MessageDelta>;
 
-interface StreamOptions {
+export interface StreamOptions {
   model: LanguageModel;
   messages: Message[];
   tools?: Tool[];
@@ -42,14 +39,7 @@ export async function* createStream(opts: StreamOptions): MessageStream {
 
   for await (const part of stream.fullStream) {
     if (streamingMessage && part.type === 'finish') {
-      yield {
-        ...streamingMessage,
-        type: `${streamingMessage.type}.delta`,
-        final: true,
-        delta: {},
-      };
-
-      yield streamingMessage;
+      yield { ...streamingMessage };
     }
 
     if (part.type === 'text-delta') {
@@ -58,15 +48,22 @@ export async function* createStream(opts: StreamOptions): MessageStream {
           type: 'reply',
           text: '',
         });
+
+        yield {
+          type: 'reply.delta',
+          id: streamingMessage.id,
+          timestamp: streamingMessage.timestamp,
+          delta: { text: '' },
+        };
       }
 
       const messageDelta: ReplyMessageDelta = {
+        type: 'reply.delta',
         id: streamingMessage.id,
         timestamp: streamingMessage.timestamp,
-        type: 'reply.delta',
         delta: { text: part.textDelta },
       };
-      streamingMessage.text += messageDelta.delta.text;
+      streamingMessage.text += part.textDelta;
 
       yield messageDelta;
     }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { CliMessage } from '../shell-messages.js';
+import { CliMessage } from './shell-messages.js';
 
 // Memoize the component to prevent unnecessary re-renders
 export const Message = React.memo(({ msg }: { msg: CliMessage }) => {

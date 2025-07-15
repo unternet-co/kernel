@@ -38,12 +38,9 @@ export interface InputMessage extends MessageMetadata {
   files?: FileAttachment[];
 }
 
-export interface ReplyMessageDetail {
-  text: string;
-}
-
-export interface ReplyMessage extends MessageMetadata, ReplyMessageDetail {
+export interface ReplyMessage extends MessageMetadata {
   type: 'reply';
+  text: string;
 }
 
 export interface ReasoningMessage extends MessageMetadata {

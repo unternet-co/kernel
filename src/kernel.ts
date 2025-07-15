@@ -1,8 +1,14 @@
-import { createStream, MessageDelta, MessageStream } from './stream';
+import { createStream, MessageDelta } from './stream';
 import { Runtime } from './runtime';
 import { LanguageModel } from './types';
 import { Tool } from './tools';
-import { Message } from './messages';
+import {
+  createMessage,
+  Message,
+  ReplyMessage,
+  ToolCallsMessage,
+  ToolResultsMessage,
+} from './messages';
 import { Emitter } from './emitter';
 
 interface KernelOpts {
@@ -91,31 +97,71 @@ export class Kernel extends Emitter<KernelEvents> {
 
     this.setStatus('busy');
     for await (const response of stream) {
+      console.log('response', response);
       if (this.abortSignal) {
         this.abortSignal = false;
         this.setStatus('idle');
         return;
       }
 
-      if (response.type === 'reply.delta') {
-        let msg = this._messages.get(response.id);
+      this.emit('message', response);
 
-        if (!msg || msg.type !== 'reply') {
-          msg = {
+      if (response.type === 'reply.delta') {
+        if (!this._messages.has(response.id)) {
+          const initialMsg = {
             type: 'reply',
             id: response.id,
             timestamp: response.timestamp,
             text: '',
-          };
-          this.addMessage(msg);
+          } as ReplyMessage;
+          this.addMessage(initialMsg);
         }
 
-        msg.text += response.delta.text;
-      }
+        let msg = this._messages.get(response.id);
 
-      this.emit('message', response);
+        if (msg && msg.type === 'reply') {
+          const delta = response.delta as Partial<ReplyMessage>;
+
+          this._messages.set(msg.id, {
+            ...msg,
+            text: msg.text + (delta.text ?? ''),
+          });
+        }
+      } else {
+        this.addMessage(response);
+
+        // TODO: Fix why follow-ups aren't happening after tool call
+        // Maybe because a stream is in progress?
+        if (response.type === 'tool-calls') {
+          this.callTools(response);
+        }
+      }
     }
 
     this.setStatus('idle');
+  }
+
+  callTools(msg: ToolCallsMessage) {
+    const resultsMsg = createMessage<ToolResultsMessage>({
+      type: 'tool-results',
+      results: [],
+    });
+
+    for (const call of msg.calls) {
+      const { id, name, args } = call;
+      const tool = this.tools.find((t) => t.name === name);
+
+      if (!tool || !('execute' in tool)) {
+        throw new Error(`Unknown tool: ${name}`);
+      }
+
+      resultsMsg.results.push({
+        callId: id,
+        name: name,
+        output: tool.execute!(args),
+      });
+    }
+
+    this.send(resultsMsg);
   }
 }
