@@ -7,10 +7,14 @@ import { tools } from '../tools';
 import Gradient from 'ink-gradient';
 import BigText from 'ink-big-text';
 import { MessageBlock } from './MessageBlock.js';
+import { openai } from '@ai-sdk/openai';
 
 export const App = () => {
   const [query, setQuery] = useState('');
-  const {messages, sendMessage} = useKernel();
+  const {messages, sendMessage} = useKernel({
+     model: openai('gpt-4o'),
+     tools: tools
+  });
 
   const handleSubmit = (text: string) => {
     sendMessage(createMessage<InputMessage>({

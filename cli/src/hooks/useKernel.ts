@@ -1,29 +1,19 @@
-import { openai } from '@ai-sdk/openai';
-import { Kernel, Message } from '@unternet/kernel';
-import { tools } from '../tools';
-import { useState, useEffect } from 'react';
+import { Kernel, KernelOpts, Message } from '@unternet/kernel';
+import { useState, useEffect, useRef } from 'react';
 
-const model = openai('gpt-4o');
-
-const kernel = new Kernel({
-  model,
-  tools,
-});
-
-export function useKernel() {
+export function useKernel(opts: KernelOpts) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const kernel = useRef<Kernel | null>(null);
 
-  useEffect(
-    () =>
-      kernel.on('message', (r) => {
-        setMessages(kernel.messages);
-      }),
-    []
-  );
+  useEffect(() => {
+    kernel.current = new Kernel(opts);
+    kernel.current.on('message', () => {
+      setMessages(kernel.current?.messages || []);
+    });
+  }, []);
 
   function sendMessage(msg: Message) {
-    // setMessages([...messages, msg]);
-    kernel.send(msg);
+    kernel.current?.send(msg);
   }
 
   return { messages, sendMessage };

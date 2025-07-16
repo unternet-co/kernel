@@ -33,7 +33,7 @@ export const MessageBlock = React.memo(({ msg }: { msg: Message }) => {
   if (msg.type === 'tool-results') {
     return (
       <Box marginTop={1} display="flex" flexDirection="column">
-        <Text backgroundColor="magenta" color="black"> Results </Text>
+        <Text backgroundColor="magenta" color="black" dimColor> Results </Text>
         <Text color="magenta" dimColor>→ {msg.results.map(result => `${JSON.stringify(result.output)}`).join(', ')}</Text>
       </Box>
     );

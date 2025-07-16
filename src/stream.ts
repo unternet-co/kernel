@@ -20,69 +20,94 @@ export interface ReplyMessageDelta extends MessageMetadata {
   delta: Partial<Omit<ReplyMessage, 'type' | keyof MessageMetadata>>;
 }
 
-export type MessageStream = AsyncGenerator<Message | MessageDelta>;
-
 export interface StreamOptions {
   model: LanguageModel;
   messages: Message[];
   tools?: Tool[];
 }
 
-export async function* createStream(opts: StreamOptions): MessageStream {
+export function createStream(opts: StreamOptions): MessageStream {
   const stream = streamText({
     model: opts.model,
     messages: renderMessages(opts.messages),
     tools: opts.tools ? renderTools(opts.tools) : undefined,
   });
 
-  let streamingMessage: Message | null = null;
+  return new MessageStream(stream);
+}
 
-  for await (const part of stream.fullStream) {
-    if (streamingMessage && part.type === 'finish') {
-      yield { ...streamingMessage };
-    }
+export class MessageStream {
+  readonly id = ulid();
+  private abortController = new AbortController();
 
-    if (part.type === 'text-delta') {
-      if (!streamingMessage) {
-        streamingMessage = createMessage<ReplyMessage>({
-          type: 'reply',
-          text: '',
-        });
+  constructor(private stream: any) {}
 
-        yield {
-          type: 'reply.delta',
-          id: streamingMessage.id,
-          timestamp: streamingMessage.timestamp,
-          delta: { text: '' },
-        };
+  abort() {
+    this.abortController.abort();
+  }
+
+  get aborted() {
+    return this.abortController.signal.aborted;
+  }
+
+  async *[Symbol.asyncIterator](): AsyncGenerator<Message | MessageDelta> {
+    let streamingMessage: Message | null = null;
+
+    try {
+      for await (const part of this.stream.fullStream) {
+        if (this.aborted) break;
+
+        if (streamingMessage && part.type === 'finish') {
+          yield { ...streamingMessage };
+        }
+
+        if (part.type === 'text-delta') {
+          if (!streamingMessage) {
+            streamingMessage = createMessage<ReplyMessage>({
+              type: 'reply',
+              text: '',
+            });
+
+            yield {
+              type: 'reply.delta',
+              id: streamingMessage.id,
+              timestamp: streamingMessage.timestamp,
+              delta: { text: '' },
+            };
+          }
+
+          const messageDelta: ReplyMessageDelta = {
+            type: 'reply.delta',
+            id: streamingMessage.id,
+            timestamp: streamingMessage.timestamp,
+            delta: { text: part.textDelta },
+          };
+          streamingMessage.text += part.textDelta;
+
+          yield messageDelta;
+        }
+
+        if (part.type === 'tool-call') {
+          yield createMessage<ToolCallsMessage>({
+            type: 'tool-calls',
+            calls: [
+              {
+                id: ulid(),
+                name: part.toolName,
+                args: part.args,
+              },
+            ],
+          });
+        }
+
+        if (part.type === 'error') {
+          throw part.error;
+        }
       }
-
-      const messageDelta: ReplyMessageDelta = {
-        type: 'reply.delta',
-        id: streamingMessage.id,
-        timestamp: streamingMessage.timestamp,
-        delta: { text: part.textDelta },
-      };
-      streamingMessage.text += part.textDelta;
-
-      yield messageDelta;
-    }
-
-    if (part.type === 'tool-call') {
-      yield createMessage<ToolCallsMessage>({
-        type: 'tool-calls',
-        calls: [
-          {
-            id: ulid(),
-            name: part.toolName,
-            args: part.args,
-          },
-        ],
-      });
-    }
-
-    if (part.type === 'error') {
-      throw part.error;
+    } catch (error) {
+      if (error instanceof Error && error.name !== 'AbortError') {
+        throw error;
+      }
     }
   }
 }

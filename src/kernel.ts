@@ -1,4 +1,4 @@
-import { createStream, MessageDelta } from './stream';
+import { createStream, MessageDelta, MessageStream } from './stream';
 import { Runtime } from './runtime';
 import { LanguageModel } from './types';
 import { Tool } from './tools';
@@ -7,11 +7,12 @@ import {
   Message,
   ReplyMessage,
   ToolCallsMessage,
+  ToolResult,
   ToolResultsMessage,
 } from './messages';
 import { Emitter } from './emitter';
 
-interface KernelOpts {
+export interface KernelOpts {
   model: LanguageModel;
   messages?: Message[];
   tools?: Tool[];
@@ -37,8 +38,8 @@ export class Kernel extends Emitter<KernelEvents> {
   runtime: Runtime;
   tools: Tool[];
   messageLimit: number;
-  abortSignal: boolean = false;
   private _messages = new Map<Message['id'], Message>();
+  private _streams = new Map<string, MessageStream>();
   private _status: KernelStatus = 'idle';
 
   constructor(opts: KernelOpts) {
@@ -50,6 +51,21 @@ export class Kernel extends Emitter<KernelEvents> {
     this.messageLimit = config.messageLimit;
     this.messages = config.messages;
     this.tools = config.tools;
+
+    this.on('message', async (msg) => {
+      if (msg.type === 'tool-calls') {
+        const results = await this.callTools(msg);
+
+        this.send(
+          createMessage<ToolResultsMessage>({
+            type: 'tool-results',
+            results,
+          })
+        );
+
+        console.log('results sent', results);
+      }
+    });
   }
 
   private setStatus(status: KernelStatus) {
@@ -81,7 +97,7 @@ export class Kernel extends Emitter<KernelEvents> {
 
   async send(msg: Message) {
     if (this.status !== 'idle') {
-      this.abortSignal = true;
+      this._streams.forEach((stream) => stream.abort());
       this.once('idle', () => this.send(msg));
       return;
     }
@@ -95,57 +111,49 @@ export class Kernel extends Emitter<KernelEvents> {
       tools: this.tools,
     });
 
+    this._streams.set(stream.id, stream);
     this.setStatus('busy');
-    for await (const response of stream) {
-      console.log('response', response);
-      if (this.abortSignal) {
-        this.abortSignal = false;
-        this.setStatus('idle');
-        return;
+
+    try {
+      for await (const response of stream) {
+        this.emit('message', response);
+
+        if (response.type === 'reply.delta') {
+          if (!this._messages.has(response.id)) {
+            const initialMsg: ReplyMessage = {
+              type: 'reply',
+              id: response.id,
+              timestamp: response.timestamp,
+              text: '',
+            };
+            this.addMessage(initialMsg);
+          }
+
+          let msg = this._messages.get(response.id);
+
+          if (msg && msg.type === 'reply') {
+            const delta = response.delta as Partial<ReplyMessage>;
+
+            this._messages.set(msg.id, {
+              ...msg,
+              text: msg.text + (delta.text ?? ''),
+            });
+          }
+        } else {
+          this.addMessage(response);
+        }
       }
+    } finally {
+      this._streams.delete(stream.id);
 
-      this.emit('message', response);
-
-      if (response.type === 'reply.delta') {
-        if (!this._messages.has(response.id)) {
-          const initialMsg = {
-            type: 'reply',
-            id: response.id,
-            timestamp: response.timestamp,
-            text: '',
-          } as ReplyMessage;
-          this.addMessage(initialMsg);
-        }
-
-        let msg = this._messages.get(response.id);
-
-        if (msg && msg.type === 'reply') {
-          const delta = response.delta as Partial<ReplyMessage>;
-
-          this._messages.set(msg.id, {
-            ...msg,
-            text: msg.text + (delta.text ?? ''),
-          });
-        }
-      } else {
-        this.addMessage(response);
-
-        // TODO: Fix why follow-ups aren't happening after tool call
-        // Maybe because a stream is in progress?
-        if (response.type === 'tool-calls') {
-          this.callTools(response);
-        }
+      if (this._streams.size === 0) {
+        this.setStatus('idle');
       }
     }
-
-    this.setStatus('idle');
   }
 
-  callTools(msg: ToolCallsMessage) {
-    const resultsMsg = createMessage<ToolResultsMessage>({
-      type: 'tool-results',
-      results: [],
-    });
+  async callTools(msg: ToolCallsMessage): Promise<ToolResult[]> {
+    const results: ToolResult[] = [];
 
     for (const call of msg.calls) {
       const { id, name, args } = call;
@@ -155,13 +163,13 @@ export class Kernel extends Emitter<KernelEvents> {
         throw new Error(`Unknown tool: ${name}`);
       }
 
-      resultsMsg.results.push({
+      results.push({
         callId: id,
         name: name,
         output: tool.execute!(args),
       });
     }
 
-    this.send(resultsMsg);
+    return results;
   }
 }
