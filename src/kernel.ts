@@ -62,8 +62,6 @@ export class Kernel extends Emitter<KernelEvents> {
             results,
           })
         );
-
-        console.log('results sent', results);
       }
     });
   }
