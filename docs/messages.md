@@ -22,7 +22,7 @@ When grouping is needed, it should be by **execution threads/goals**, not speake
 The kernel orchestrates tool execution through a message-driven flow:
 
 1. **Tool Call**: AI decides to use a tool → emits `ToolCallsMessage`
-2. **User Execution**: Consumer listens for tool calls, executes them externally  
+2. **User Execution**: Consumer listens for tool calls, executes them externally
 3. **Tool Results**: Consumer sends back results via `ToolResultsMessage`
 4. **Continuation**: Kernel continues processing with tool results
 
@@ -31,6 +31,7 @@ This keeps the kernel focused on orchestration while allowing flexible tool exec
 ## Message Types
 
 ### InputMessage
+
 User input to the system. Can contain text and/or file attachments.
 
 ```typescript
@@ -42,16 +43,18 @@ User input to the system. Can contain text and/or file attachments.
 ```
 
 ### ReplyMessage
+
 AI response to the user. Contains the final output text.
 
 ```typescript
 {
-  type: 'reply', 
+  type: 'reply',
   text: string
 }
 ```
 
-### ReasoningMessage  
+### ReasoningMessage
+
 Internal reasoning from the AI system. Used for transparency and debugging.
 
 ```typescript
@@ -63,11 +66,12 @@ Internal reasoning from the AI system. Used for transparency and debugging.
 ```
 
 ### ToolCallsMessage
+
 Tool/action execution requests. Contains array of tool calls to be executed.
 
 ```typescript
 {
-  type: 'tool_calls',
+  type: 'tool-calls',
   calls: ToolCall[]
 }
 
@@ -79,58 +83,74 @@ interface ToolCall {
 ```
 
 ### ToolResultsMessage
-Results from tool execution. Links back to the original calls and contains results or errors.
+
+Results from tool execution. Links back to the original calls and contains results or errors. Can include process containers for long-running tasks.
 
 ```typescript
 {
-  type: 'tool_results',
+  type: 'tool-results',
   results: ToolResult[]
 }
 
 interface ToolResult {
-  callId: string;  // Links back to ToolCall.id
-  name: string;    // Tool name for context
-  output: any;     // Tool execution result
-  error?: string;  // Error message if execution failed
+  callId?: string;     // Links back to ToolCall.id
+  name?: string;       // Tool name for context
+  output: any;         // Tool execution result or ProcessContainer
+  error?: Error;       // Error object if execution failed
 }
 ```
 
-### LogMessage
+### SystemMessage
+
 System events and debugging information.
 
 ```typescript
 {
-  type: 'log',
+  type: 'system',
   text: string
 }
 ```
 
 ## Model Integration
 
-Message rendering for LLMs is handled by the `Interpreter` class since different models may require different rendering strategies:
+Message rendering for LLMs is handled by the `Kernel` class since different models may require different rendering strategies:
 
 ```typescript
-import { Interpreter, createMessage, InputMessage } from '@unternet/kernel';
+import { Kernel, createMessage, InputMessage } from '@unternet/kernel';
 
-const interpreter = new Interpreter({ model, tools });
+const kernel = new Kernel({ model, tools });
 
 // Listen for responses
-interpreter.on('response', (message) => {
-  if (message.type === 'tool_calls') {
-    // Execute tools and send results back
-    const results = executeTools(message.calls);
-    const toolResultsMsg = createMessage<ToolResultsMessage>({
-      type: 'tool_results',
-      results
+kernel.on('message', (message) => {
+  if (message.type === 'tool-calls') {
+    // Tool calls are automatically executed by the kernel
+    console.log(
+      'Tools called:',
+      message.calls.map((c) => c.name)
+    );
+  }
+
+  if (message.type === 'tool-results') {
+    // Handle tool results
+    message.results.forEach((result) => {
+      if (result.output instanceof ProcessContainer) {
+        console.log(`Process ${result.output.name} spawned`);
+      } else {
+        console.log('Tool result:', result.output);
+      }
     });
-    interpreter.send(toolResultsMsg);
   }
 });
 
-// Send input
-const inputMsg = createMessage<InputMessage>({ 
-  type: 'input', 
-  text: 'Hello!' 
+// Listen for process changes
+kernel.on('process-changed', () => {
+  console.log(`Active processes: ${kernel.processes.length}`);
 });
-interpreter.send(inputMsg);
+
+// Send input
+const inputMsg = createMessage<InputMessage>({
+  type: 'input',
+  text: 'Hello!',
+});
+kernel.send(inputMsg);
 ```

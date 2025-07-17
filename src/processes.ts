@@ -2,6 +2,7 @@ import { ulid } from 'ulid';
 import { Emitter } from './emitter';
 import { ResourceIcon } from './resources';
 import { JSONValue } from 'ai';
+import { Tool, ToolResult } from './tools';
 
 export type ProcessStatus = 'running' | 'suspended' | 'exited';
 
@@ -19,21 +20,27 @@ export interface ProcessSnapshot extends ProcessMetadata {
   state: any;
 }
 
+export type ProcessEvents = {
+  change: undefined;
+  'tool-result': ToolResult;
+  exit: undefined;
+};
+
 /**
  * A process is a long-running task that can be suspended or resumed,
  * and serialized.
  */
-export class Process<T = unknown> implements ProcessMetadata {
-  title?: string;
+export class Process<T = unknown>
+  extends Emitter<ProcessEvents>
+  implements ProcessMetadata
+{
+  name?: string;
   icons?: ResourceIcon[];
   suspendable: boolean = true;
   state?: T;
 
-  // Defined by ProcessContainer
-  notifyChange = () => {};
-  exit = () => {};
-
   constructor(state?: T) {
+    super();
     if (state) this.state = state;
   }
 
@@ -44,58 +51,59 @@ export class Process<T = unknown> implements ProcessMetadata {
     return new Process(state);
   }
 
-  start(): void {}
+  // Lifecycle
+  connectedCallback(): void | Promise<void> {}
+  disconnectedCallback(): void | Promise<void> {}
+
+  exit() {
+    this.emit('exit');
+  }
 
   /**
    * Update the current state of the process & notify listeners.
    */
   setState(newState: T) {
     this.state = newState;
-    this.notifyChange();
+    this.emit('change');
   }
 
   /**
    * Describe the process to the model.
    */
   describe(): JSONValue {
-    if (this.renderText().length) return this.renderText();
-    if (this.serialize()) return this.serialize();
-    return {};
+    return this.snapshot;
   }
 
   /**
-   * Render text output, for non-graphical / voice output.
+   * Call a tool on this process.
    */
-  renderText(): string {
-    return '';
-  }
+  call(tool: Tool) {}
 
   /**
    * Return a snapshot of serialiable data, for rehydration.
+   * Also used for describing the current state to the model.
    */
   serialize(): JSONValue {
     if (this.state) return this.state;
     return null;
   }
+
   get snapshot() {
     return this.serialize() ?? {};
   }
 }
 
-export type ProcessContainerEvents = {
-  change: undefined;
-  exit: undefined;
-  suspend: undefined;
+export type ProcessContainerEvents = ProcessEvents & {
   start: undefined;
+  suspend: undefined;
+  resume: undefined;
+  exit: undefined;
 };
 
-/**
- *
- */
 export class ProcessContainer extends Emitter<ProcessContainerEvents> {
   private _id: string;
   private _status: string = 'running';
-  private process?: Process;
+  private _process?: Process;
 
   constructor(id?: string) {
     super();
@@ -104,9 +112,19 @@ export class ProcessContainer extends Emitter<ProcessContainerEvents> {
 
   static wrap(process: Process) {
     const container = new ProcessContainer();
-    process.notifyChange = () => container.emit('change');
-    container.process = process;
+    container._process = process;
+
+    process.on('change', () => container.emit('change'));
+    process.on('exit', () => container.exit());
+    process.on('tool-result', (result) =>
+      container.emit('tool-result', result)
+    );
+
     return container;
+  }
+
+  describe() {
+    return this._process?.describe();
   }
 
   get id() {
@@ -115,17 +133,19 @@ export class ProcessContainer extends Emitter<ProcessContainerEvents> {
   get status() {
     return this._status;
   }
-
-  exit() {
-    this.process?.exit();
-    this.emit('exit');
+  get name() {
+    return this._process?.name;
   }
 
   start() {
+    if (!this._process) throw new Error('Start container with no process.');
+    this._process.connectedCallback();
     this.emit('start');
   }
 
-  diggity() {
-    return 'hi';
+  exit() {
+    if (!this._process) throw new Error('Exit container with no process.');
+    this._process.disconnectedCallback();
+    this.emit('exit');
   }
 }

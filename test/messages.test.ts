@@ -7,9 +7,9 @@ import {
   ReplyMessage,
   ToolCallsMessage,
   ToolResultsMessage,
-  ToolCall,
-  ToolResult,
+  SystemMessage,
 } from '../src/messages.js';
+import { ToolCall, ToolResult } from '../src/tools.js';
 
 describe('createInputMessage', () => {
   it('creates input message with text and required fields', () => {
@@ -104,10 +104,10 @@ describe('createToolCallsMessage', () => {
       { id: 'call_2', name: 'get_time', args: { timezone: 'PST' } },
     ];
     const message = createMessage<ToolCallsMessage>({
-      type: 'tool_calls',
+      type: 'tool-calls',
       calls,
     });
-    expect(message.type).toBe('tool_calls');
+    expect(message.type).toBe('tool-calls');
     expect(message.calls).toEqual(calls);
     expect(message.id).toBeDefined();
     expect(message.timestamp).toBeTypeOf('number');
@@ -130,10 +130,10 @@ describe('createToolResultsMessage', () => {
       },
     ];
     const message = createMessage<ToolResultsMessage>({
-      type: 'tool_results',
+      type: 'tool-results',
       results,
     });
-    expect(message.type).toBe('tool_results');
+    expect(message.type).toBe('tool-results');
     expect(message.results).toEqual(results);
     expect(message.id).toBeDefined();
     expect(message.timestamp).toBeTypeOf('number');
@@ -145,14 +145,29 @@ describe('createToolResultsMessage', () => {
         callId: 'call_3',
         name: 'get_weather',
         output: {},
-        error: 'API rate limit exceeded',
+        error: new Error('API rate limit exceeded'),
       },
     ];
     const message = createMessage<ToolResultsMessage>({
-      type: 'tool_results',
+      type: 'tool-results',
       results,
     });
-    expect(message.results[0].error).toBe('API rate limit exceeded');
+    expect(message.results[0].error).toBeInstanceOf(Error);
+    expect(message.results[0].error?.message).toBe('API rate limit exceeded');
     expect(message.results[0].output).toEqual({});
+  });
+});
+
+describe('createSystemMessage', () => {
+  it('creates a system message with text', () => {
+    const message = createMessage<SystemMessage>({
+      type: 'system',
+      text: 'Tool call completed.',
+    });
+
+    expect(message.type).toBe('system');
+    expect(message.text).toBe('Tool call completed.');
+    expect(message.id).toBeDefined();
+    expect(message.timestamp).toBeTypeOf('number');
   });
 });

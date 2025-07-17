@@ -7,6 +7,7 @@ import {
   CoreUserMessage,
 } from 'ai';
 import { ToolCall, ToolResult } from './tools';
+import { ProcessContainer } from './processes';
 
 export type Message =
   | SystemMessage
@@ -121,12 +122,19 @@ export function renderMessages(msgs: Message[]): RenderedMessage[] {
     if (msg.type === 'tool-results') {
       renderedMsgs.push({
         role: 'tool',
-        content: msg.results.map((result) => ({
-          type: 'tool-result',
-          toolCallId: result.callId,
-          toolName: result.name,
-          result: result.output,
-        })),
+        content: msg.results.map((result) => {
+          const output =
+            result.output instanceof ProcessContainer
+              ? result.output.describe()
+              : result.output;
+
+          return {
+            type: 'tool-result',
+            toolCallId: result.callId ?? '',
+            toolName: result.name ?? '',
+            result: output,
+          };
+        }),
       });
     }
   }

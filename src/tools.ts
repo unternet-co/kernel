@@ -24,10 +24,10 @@ export interface ToolCall {
 }
 
 export interface ToolResult {
-  callId: string;
-  name: string;
-  output: JSONValue | ProcessContainer;
-  error?: string;
+  output: any;
+  name?: string;
+  callId?: string;
+  error?: Error;
 }
 
 export function createTool<TSchema extends ZodSchema>(tool: {

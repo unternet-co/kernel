@@ -1,11 +1,14 @@
 import { JSONValue } from 'ai';
 import { Emitter } from './emitter';
 import { Process, ProcessContainer } from './processes';
+import { PromiseProcess } from './promise-process';
+import { ToolResult } from './tools';
 
 type RuntimeEvents = {
-  'process-created': ProcessContainer;
+  'process-started': ProcessContainer;
   'process-changed': { pid: ProcessContainer['id'] };
   'process-exited': { pid: ProcessContainer['id'] };
+  'tool-result': { pid: ProcessContainer['id']; result: ToolResult };
 };
 
 type ExecutionFunction = () =>
@@ -48,35 +51,23 @@ export class Runtime extends Emitter<RuntimeEvents> {
       this.emit('process-changed', { pid: container.id });
     });
     container.on('exit', () => {
-      this.emit('process-exited', { pid: container.id });
+      const pid = container.id;
+      this._processes.delete(pid);
+      this.emit('process-changed', { pid });
+      this.emit('process-exited', { pid });
+    });
+    container.on('tool-result', (result: ToolResult) => {
+      this.emit('tool-result', { pid: container.id, result });
     });
 
     this._processes.set(container.id, container);
-    this.emit('process-created', container);
+    this.emit('process-started', container);
+    this.emit('process-changed', { pid: container.id });
     return container;
   }
 
   find(pid: ProcessContainer['id']) {
     return this._processes.get(pid);
-  }
-}
-
-class PromiseProcess extends Process {
-  output: any = null;
-  suspendable = false;
-
-  constructor(promise: Promise<any>) {
-    super();
-    this.await(promise);
-  }
-
-  async await(promise: Promise<any>) {
-    this.output = await promise;
-    this.notifyChange();
-  }
-
-  serialize() {
-    return this.output;
   }
 }
 

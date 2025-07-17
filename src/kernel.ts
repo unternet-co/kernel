@@ -6,6 +6,7 @@ import {
   createMessage,
   Message,
   ReplyMessage,
+  SystemMessage,
   ToolResultsMessage,
 } from './messages';
 import { ToolCall, ToolResult } from './tools';
@@ -27,6 +28,7 @@ const defaultOpts = {
 
 type KernelEvents = {
   message: Message | MessageDelta;
+  'process-changed': undefined;
   idle: undefined;
   busy: undefined;
 };
@@ -51,6 +53,19 @@ export class Kernel extends Emitter<KernelEvents> {
     this.messageLimit = config.messageLimit;
     this.messages = config.messages;
     this.tools = config.tools;
+
+    this.runtime.on('process-changed', () => {
+      this.emit('process-changed');
+    });
+
+    this.runtime.on('tool-result', () => {
+      this.send(
+        createMessage<SystemMessage>({
+          type: 'system',
+          text: `Tool call completed.`,
+        })
+      );
+    });
   }
 
   private setStatus(status: KernelStatus) {
@@ -141,7 +156,6 @@ export class Kernel extends Emitter<KernelEvents> {
 
       if (response.type === 'tool-calls') {
         this.callTools(response.calls);
-        this.stopStream(stream.id);
       }
     }
 
