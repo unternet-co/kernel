@@ -6,6 +6,7 @@ import {
   CoreToolMessage,
   CoreUserMessage,
 } from 'ai';
+import { ToolCall, ToolResult } from './tools';
 
 export type Message =
   | SystemMessage
@@ -54,22 +55,9 @@ export interface LogMessage extends MessageMetadata {
   text: string;
 }
 
-export interface ToolCall {
-  id: string;
-  name: string;
-  args?: JSONValue;
-}
-
 export interface ToolCallsMessage extends MessageMetadata {
   type: 'tool-calls';
   calls: ToolCall[];
-}
-
-export interface ToolResult {
-  callId: string;
-  name: string;
-  output: any;
-  error?: string;
 }
 
 export interface ToolResultsMessage extends MessageMetadata {

@@ -1,4 +1,5 @@
 import { Tool } from '@unternet/kernel';
-import test_tool from './test-tool';
+import deepResearchTool from './deep-research';
+import testTool from './test-tool';
 
-export const tools = [test_tool] as Tool[];
+export const tools = [testTool, deepResearchTool] as Tool[];

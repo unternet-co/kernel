@@ -11,24 +11,34 @@ type RuntimeEvents = {
 type ExecutionFunction = () =>
   | JSONValue
   | Promise<JSONValue>
-  | AsyncIterator<JSONValue>;
+  | AsyncIterator<JSONValue>
+  | Process;
 
 export class Runtime extends Emitter<RuntimeEvents> {
-  private processes = new Map<ProcessContainer['id'], ProcessContainer>();
+  private _processes = new Map<ProcessContainer['id'], ProcessContainer>();
 
-  exec(fn: ExecutionFunction): ProcessContainer | JSONValue {
-    const value = fn();
-
-    if (isPromise(value)) {
-      return this.spawn(new PromiseProcess(value));
-    }
-
-    if (isAsyncIterator(value)) {
-      throw new Error('Not implemented yet.');
-    }
-
-    return value;
+  get processes(): ProcessContainer[] {
+    return Array.from(this._processes.values());
   }
+
+  // TODO: Should probably be "queue" and give an event of an output
+  // exec(fn: ExecutionFunction): ProcessContainer | JSONValue {
+  //   const value = fn();
+
+  //   if (isPromise(value)) {
+  //     return this.spawn(new PromiseProcess(value));
+  //   }
+
+  //   if (isProcess(value)) {
+  //     return this.spawn(value);
+  //   }
+
+  //   if (isAsyncIterator(value)) {
+  //     throw new Error('Not implemented yet.');
+  //   }
+
+  //   return value;
+  // }
 
   spawn(process: Process) {
     const container = ProcessContainer.wrap(process);
@@ -41,9 +51,13 @@ export class Runtime extends Emitter<RuntimeEvents> {
       this.emit('process-exited', { pid: container.id });
     });
 
-    this.processes.set(container.id, container);
+    this._processes.set(container.id, container);
     this.emit('process-created', container);
     return container;
+  }
+
+  find(pid: ProcessContainer['id']) {
+    return this._processes.get(pid);
   }
 }
 
@@ -70,6 +84,10 @@ function isPromise(value: any): value is Promise<unknown> {
   return (
     !!value && typeof value === 'object' && typeof value.then === 'function'
   );
+}
+
+function isProcess(value: any): value is Process {
+  return value instanceof Process;
 }
 
 function isAsyncIterator<T = any>(value: any): value is AsyncIterator<T> {

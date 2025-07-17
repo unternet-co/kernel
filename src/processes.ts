@@ -23,7 +23,7 @@ export interface ProcessSnapshot extends ProcessMetadata {
  * A process is a long-running task that can be suspended or resumed,
  * and serialized.
  */
-export class Process<T = JSONValue> implements ProcessMetadata {
+export class Process<T = unknown> implements ProcessMetadata {
   title?: string;
   icons?: ResourceIcon[];
   suspendable: boolean = true;
@@ -40,11 +40,11 @@ export class Process<T = JSONValue> implements ProcessMetadata {
   /**
    * Resume a process, based on serialized state from serialize()
    */
-  static fromSnapshot(state: any): Process {
+  static fromSnapshot(state: unknown): Process {
     return new Process(state);
   }
 
-  resume(): void {}
+  start(): void {}
 
   /**
    * Update the current state of the process & notify listeners.
@@ -86,7 +86,7 @@ export type ProcessContainerEvents = {
   change: undefined;
   exit: undefined;
   suspend: undefined;
-  resume: undefined;
+  start: undefined;
 };
 
 /**
@@ -114,5 +114,18 @@ export class ProcessContainer extends Emitter<ProcessContainerEvents> {
   }
   get status() {
     return this._status;
+  }
+
+  exit() {
+    this.process?.exit();
+    this.emit('exit');
+  }
+
+  start() {
+    this.emit('start');
+  }
+
+  diggity() {
+    return 'hi';
   }
 }

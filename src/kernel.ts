@@ -1,16 +1,16 @@
 import { createStream, MessageDelta, MessageStream } from './stream';
 import { Runtime } from './runtime';
-import { LanguageModel } from './types';
+import { JSONValue, LanguageModel } from './types';
 import { Tool } from './tools';
 import {
   createMessage,
   Message,
   ReplyMessage,
-  ToolCallsMessage,
-  ToolResult,
   ToolResultsMessage,
 } from './messages';
+import { ToolCall, ToolResult } from './tools';
 import { Emitter } from './emitter';
+import { Process, ProcessContainer } from './processes';
 
 export interface KernelOpts {
   model: LanguageModel;
@@ -51,19 +51,6 @@ export class Kernel extends Emitter<KernelEvents> {
     this.messageLimit = config.messageLimit;
     this.messages = config.messages;
     this.tools = config.tools;
-
-    this.on('message', async (msg) => {
-      if (msg.type === 'tool-calls') {
-        const results = await this.callTools(msg);
-
-        this.send(
-          createMessage<ToolResultsMessage>({
-            type: 'tool-results',
-            results,
-          })
-        );
-      }
-    });
   }
 
   private setStatus(status: KernelStatus) {
@@ -83,6 +70,10 @@ export class Kernel extends Emitter<KernelEvents> {
     return Array.from(this._messages.values());
   }
 
+  get processes() {
+    return this.runtime.processes;
+  }
+
   private addMessage(msg: Message) {
     this._messages.set(msg.id, msg);
 
@@ -95,6 +86,7 @@ export class Kernel extends Emitter<KernelEvents> {
 
   async send(msg: Message) {
     if (this.status !== 'idle') {
+      // TODO: Later, we will want to discern which streams to abort
       this._streams.forEach((stream) => stream.abort());
       this.once('idle', () => this.send(msg));
       return;
@@ -109,65 +101,91 @@ export class Kernel extends Emitter<KernelEvents> {
       tools: this.tools,
     });
 
+    this.handleStream(stream);
+  }
+
+  private async handleStream(stream: MessageStream) {
     this._streams.set(stream.id, stream);
     this.setStatus('busy');
 
-    try {
-      for await (const response of stream) {
-        this.emit('message', response);
+    for await (const response of stream) {
+      this.emit('message', response);
 
-        if (response.type === 'reply.delta') {
-          if (!this._messages.has(response.id)) {
-            const initialMsg: ReplyMessage = {
-              type: 'reply',
-              id: response.id,
-              timestamp: response.timestamp,
-              text: '',
-            };
-            this.addMessage(initialMsg);
-          }
-
-          let msg = this._messages.get(response.id);
-
-          if (msg && msg.type === 'reply') {
-            const delta = response.delta as Partial<ReplyMessage>;
-
-            this._messages.set(msg.id, {
-              ...msg,
-              text: msg.text + (delta.text ?? ''),
-            });
-          }
-        } else {
-          this.addMessage(response);
+      // Handle deltas
+      if (response.type === 'reply.delta') {
+        if (!this._messages.has(response.id)) {
+          const initialMsg: ReplyMessage = {
+            type: 'reply',
+            id: response.id,
+            timestamp: response.timestamp,
+            text: '',
+          };
+          this.addMessage(initialMsg);
         }
-      }
-    } finally {
-      this._streams.delete(stream.id);
 
-      if (this._streams.size === 0) {
-        this.setStatus('idle');
+        let msg = this._messages.get(response.id);
+
+        if (msg && msg.type === 'reply') {
+          const delta = response.delta as Partial<ReplyMessage>;
+
+          this._messages.set(msg.id, {
+            ...msg,
+            text: msg.text + (delta.text ?? ''),
+          });
+        }
+        continue;
       }
+
+      // No delta, just add the message
+      this.addMessage(response);
+
+      if (response.type === 'tool-calls') {
+        this.callTools(response.calls);
+        this.stopStream(stream.id);
+      }
+    }
+
+    // Stream completed
+    this.stopStream(stream.id);
+  }
+
+  stopStream(id: string) {
+    this._streams.delete(id);
+    if (this._streams.size === 0) {
+      this.setStatus('idle');
     }
   }
 
-  async callTools(msg: ToolCallsMessage): Promise<ToolResult[]> {
+  private async callTools(calls: ToolCall[]) {
     const results: ToolResult[] = [];
 
-    for (const call of msg.calls) {
+    for (const call of calls) {
       const { id, name, args } = call;
       const tool = this.tools.find((t) => t.name === name);
 
-      if (!tool || !('execute' in tool)) {
-        throw new Error(`Unknown tool: ${name}`);
+      if (!tool?.execute) {
+        throw new Error(`Unknown or invalid tool: ${name}`);
       }
+
+      let rawOutput = await tool.execute(args);
+
+      const output =
+        rawOutput instanceof Process
+          ? this.runtime.spawn(rawOutput)
+          : rawOutput;
 
       results.push({
         callId: id,
         name: name,
-        output: tool.execute!(args),
+        output,
       });
     }
 
-    return results;
+    this.send(
+      createMessage<ToolResultsMessage>({
+        type: 'tool-results',
+        results,
+      })
+    );
   }
 }
