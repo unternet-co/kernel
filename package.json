@@ -10,8 +10,7 @@
     "format": "prettier --write .",
     "dev": "vite build --watch",
     "build": "vite build",
-    "release": "release-it",
-    "cli": "cd cli && npm run dev"
+    "release": "release-it"
   },
   "repository": {
     "type": "git",

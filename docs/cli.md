@@ -1,58 +1,30 @@
 # CLI Example
 
-The `cli/` directory contains an interactive terminal application that demonstrates the Unternet Kernel in action. It's built with React Ink for a rich terminal UI experience.
-
-## Features
-
-- **Natural language chat** with AI models
-- **Shell integration** for common commands (ls, cd, pwd, etc.)
-- **Tool execution** including weather lookup and shell commands
-- **Real-time streaming** responses with delta updates
-- **Directory awareness** showing current working directory
+The `cli/` directory contains an interactive terminal application that demonstrates the Unternet Kernel in action, and can be inspected for tips on how to integrate it into a project.
 
 ## Setup
 
-```bash
-# From the repository root
-npm run cli
-```
-
-## Usage
-
-The CLI provides a hybrid interface:
-
-- **Chat mode**: Type natural language to interact with the AI
-- **Shell mode**: Common commands run directly (ls, cd, pwd)
-- **Force shell**: Use `/` prefix for other commands (`/git status`, `/npm install`)
-
-## Available Tools
-
-- `get_weather` - Current weather information
-- `shell_command` - Execute system shell commands
-
-## Example Session
+The CLI has its own package.json. To start, navigate to `/cli` and run:
 
 ```
-> What's the weather like?
-🤖 I'll check the current weather for you.
-☀️ It's currently 72°F and sunny in San Francisco
-
-> ls
-📁 src/
-📄 package.json
-📄 README.md
-
-> /git status
-🔧 On branch main
-   Your branch is up to date
+npm run install
+npm run dev
 ```
 
-## Architecture
+## About
 
-The CLI demonstrates:
-- Event-driven message handling with the Interpreter
-- Tool execution flow (AI calls → user executes → results back)
-- Real-time UI updates from streaming responses
-- Integration with system shell and external APIs
+The CLI demonstrates the Kernel's response types, asynchronous/background tasks, and simultaneous streams.
 
-Perfect for testing kernel behavior and understanding the message flow patterns.
+Type in queries. If your query triggers a tool, it will either execute synchronously or trigger an async process which you will see in the bottom bar. You can continue inputting queries while background processes are ongoing.
+
+Each response type is tagged by what kind of message it is. For example, `Input`, `Document`, `Reply`. While these all appear as text in the CLI, a GUI could display them differently — for example, speaking a reply while rendering a document as a panel on the screen.
+
+## Extending the CLI
+
+You can creat your own tools and add them to the CLI's kernel instance to add more features to the CLI.
+
+## What's next?
+
+Beyond a demo, the CLI isn't particularly useful yet (nor is it designed to be a 'product'). However, more extensibility & capabilities for the kernel are planned in the near future.
+
+If you add something interesting, we'd love to know. Email `hello@unternet.co`.

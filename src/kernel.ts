@@ -127,7 +127,7 @@ export class Kernel extends Emitter<KernelEvents> {
       this.emit('message', response);
 
       // Handle deltas
-      if (response.type === 'reply.delta') {
+      if (response.type === 'delta') {
         if (!this._messages.has(response.id)) {
           const initialMsg: ReplyMessage = {
             type: 'reply',

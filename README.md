@@ -19,7 +19,7 @@ This will start an interactive chat session.
 
 ## Current status
 
-This is in active development. Don't expect much yet.
+This is in frenetic development. Don't expect too much yet, nor API stability.
 
 ## Releasing
 

@@ -1,98 +1,115 @@
 # Messages
 
-The cognitive kernel uses a typed message system as the system of record for temporal and history state. These messages capture the action history of the kernel: thoughts, actions, tools, and system events. This enables granular UI control, debugging transparency, and process management.
+Much like a chat app system, the lifeblood of the Kernel is a stream of `Message`s. These messages capture the action history of the kernel: thoughts, actions, tools, and system events.
 
-All messages share a common base structure with unique IDs and timestamps:
-
-```typescript
-interface MessageMetadata {
-  id: string;
-  timestamp: number;
-}
-```
-
-## Design Philosophy
-
-Kernel messages are organized by **semantic type** (input, response, thought, etc.) rather than conversational roles. This reflects that a cognitive kernel processes different kinds of information flows - not just "who said what" but "what kind of processing step occurred."
-
-When grouping is needed, it should be by **execution threads/goals**, not speakers. The role-based grouping (user/assistant/system) is an LLM conversation pattern that doesn't map well to kernel internals where multiple subsystems generate different message types in service of the same goal.
-
-## Tool Execution Flow
-
-The kernel orchestrates tool execution through a message-driven flow:
-
-1. **Tool Call**: AI decides to use a tool → emits `ToolCallsMessage`
-2. **User Execution**: Consumer listens for tool calls, executes them externally
-3. **Tool Results**: Consumer sends back results via `ToolResultsMessage`
-4. **Continuation**: Kernel continues processing with tool results
-
-This keeps the kernel focused on orchestration while allowing flexible tool execution patterns.
+Unlike a typical chat app, Kernel messages are organized by **semantic type** (input, response, thought, etc.) rather than conversational roles. This reflects that a cognitive kernel processes different kinds of information flows - not just "who said what" but "what kind of processing step occurred."
 
 ## Message Types
 
-### InputMessage
+The basic format for a message is:
+
+```typescript
+{
+  id: string; // This is a ULID assigned at creation
+  timestamp: number; // The timestamp of the message
+  type: string; // The type of message, e.g. 'reply'
+  // ... custom message properties
+}
+```
+
+Right now, the Kernel has a fixed number of possible message types, but this will soon be extensible. Below we go through the available message types.
+
+### `InputMessage`
 
 User input to the system. Can contain text and/or file attachments.
 
 ```typescript
 {
+  id: string;
+  timestamp: number;
   type: 'input',
   text?: string,
   files?: FileAttachment[]
 }
 ```
 
-### ReplyMessage
-
-AI response to the user. Contains the final output text.
+Where `FileAttachment` is as follows:
 
 ```typescript
 {
+  data: Uint8Array;
+  filename?: string;
+  mimeType?: string;
+}
+```
+
+### `ReplyMessage`
+
+A direct response to the user, to be displayed or spoken.
+
+```typescript
+{
+  id: string;
+  timestamp: number;
   type: 'reply',
   text: string
 }
 ```
 
-### ReasoningMessage
+### `ReasoningMessage`
 
-Internal reasoning from the AI system. Used for transparency and debugging.
+Internal reasoning from the kernel, used with reasoning models (this isn't in effect yet).
 
 ```typescript
 {
+  id: string;
+  timestamp: number;
   type: 'reasoning',
   title: string,
   summary: string
 }
 ```
 
-### ToolCallsMessage
+### `ToolCallsMessage`
 
 Tool/action execution requests. Contains array of tool calls to be executed.
 
 ```typescript
 {
+  id: string;
+  timestamp: number;
   type: 'tool-calls',
   calls: ToolCall[]
 }
+```
 
-interface ToolCall {
+Where `ToolCall` is described as such:
+
+```typescript
+ToolCall {
   id: string;
   name: string;
   args?: JSONValue;
 }
 ```
 
-### ToolResultsMessage
+### `ToolResultsMessage`
 
 Results from tool execution. Links back to the original calls and contains results or errors. Can include process containers for long-running tasks.
 
 ```typescript
 {
+  id: string;
+  timestamp: number;
   type: 'tool-results',
   results: ToolResult[]
 }
+```
 
-interface ToolResult {
+Where `ToolResult` is described as such:
+
+```typescript
+{
   callId?: string;     // Links back to ToolCall.id
   name?: string;       // Tool name for context
   output: any;         // Tool execution result or ProcessContainer
@@ -100,57 +117,15 @@ interface ToolResult {
 }
 ```
 
-### SystemMessage
+### `SystemMessage`
 
-System events and debugging information.
+For system prompts and messages from the system, indicating the current status of the kernel or other miscellaneous events:
 
 ```typescript
 {
+  id: string;
+  timestamp: number;
   type: 'system',
   text: string
 }
-```
-
-## Model Integration
-
-Message rendering for LLMs is handled by the `Kernel` class since different models may require different rendering strategies:
-
-```typescript
-import { Kernel, createMessage, InputMessage } from '@unternet/kernel';
-
-const kernel = new Kernel({ model, tools });
-
-// Listen for responses
-kernel.on('message', (message) => {
-  if (message.type === 'tool-calls') {
-    // Tool calls are automatically executed by the kernel
-    console.log(
-      'Tools called:',
-      message.calls.map((c) => c.name)
-    );
-  }
-
-  if (message.type === 'tool-results') {
-    // Handle tool results
-    message.results.forEach((result) => {
-      if (result.output instanceof ProcessContainer) {
-        console.log(`Process ${result.output.name} spawned`);
-      } else {
-        console.log('Tool result:', result.output);
-      }
-    });
-  }
-});
-
-// Listen for process changes
-kernel.on('process-changed', () => {
-  console.log(`Active processes: ${kernel.processes.length}`);
-});
-
-// Send input
-const inputMsg = createMessage<InputMessage>({
-  type: 'input',
-  text: 'Hello!',
-});
-kernel.send(inputMsg);
 ```

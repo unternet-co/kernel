@@ -59,7 +59,7 @@ describe('Kernel', () => {
       });
 
       // This would typically be triggered by process operations
-      kernel.runtime.emit('process-changed', { pid: 'test-pid' });
+      (kernel.runtime as any).emit('process-changed', { pid: 'test-pid' });
       expect(emitted).toBe(true);
     });
   });

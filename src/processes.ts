@@ -45,22 +45,28 @@ export class Process<T = unknown>
   }
 
   /**
-   * Resume a process, based on serialized state from serialize()
+   * Instantiate a new process, based on serialized state from serialize()
    */
   static fromSnapshot(state: unknown): Process {
     return new Process(state);
   }
 
-  // Lifecycle
-  connectedCallback(): void | Promise<void> {}
-  disconnectedCallback(): void | Promise<void> {}
+  /**
+   * This is run whenever the process is started or resumed.
+   */
+  activate(): void | Promise<void> {}
 
-  exit() {
+  /**
+   * This is run whenever the process is suspended or exited.
+   */
+  deactivate(): void | Promise<void> {}
+
+  private exit() {
     this.emit('exit');
   }
 
   /**
-   * Update the current state of the process & notify listeners.
+   * Update the current state of the process & notify listeners. Override if you're not using state.
    */
   setState(newState: T) {
     this.state = newState;
@@ -81,13 +87,16 @@ export class Process<T = unknown>
 
   /**
    * Return a snapshot of serialiable data, for rehydration.
-   * Also used for describing the current state to the model.
+   * Also used for describing the current state to the model by default.
    */
   serialize(): JSONValue {
     if (this.state) return this.state;
     return null;
   }
 
+  /**
+   * Gets the current snapshot, using serialize().
+   */
   get snapshot() {
     return this.serialize() ?? {};
   }
@@ -139,13 +148,13 @@ export class ProcessContainer extends Emitter<ProcessContainerEvents> {
 
   start() {
     if (!this._process) throw new Error('Start container with no process.');
-    this._process.connectedCallback();
+    this._process.activate();
     this.emit('start');
   }
 
   exit() {
     if (!this._process) throw new Error('Exit container with no process.');
-    this._process.disconnectedCallback();
+    this._process.deactivate();
     this.emit('exit');
   }
 }

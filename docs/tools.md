@@ -15,7 +15,6 @@ const weatherTool = createTool({
   description: 'Check the weather in a location',
   parameters: z.object({ city: z.string() }),
   execute: async ({ city }) => {
-    // Return immediate result
     const response = await fetch(`/api/weather?city=${city}`);
     return response.json();
   },
@@ -31,35 +30,7 @@ const weatherTool = createTool({
 
 ## Process-Returning Tools
 
-Tools can return `Process` instances for long-running operations:
-
-```typescript
-import { createTool, PromiseProcess } from '@unternet/kernel';
-import { z } from 'zod';
-
-const researchTool = createTool({
-  name: 'deep_research',
-  description: 'Perform comprehensive research on a topic',
-  parameters: z.object({ query: z.string() }),
-  execute: ({ query }) =>
-    new PromiseProcess('research', async () => {
-      // Long-running research operation
-      const results = [];
-
-      // Simulate multiple research steps
-      for (const source of ['wikipedia', 'arxiv', 'news']) {
-        const data = await searchSource(source, query);
-        results.push(data);
-      }
-
-      return {
-        query,
-        sources: results.length,
-        summary: generateSummary(results),
-      };
-    }),
-});
-```
+Tools can return `Process` instances for long-running operations, that happen asynchronously in the background. For more, see [Processes](./processes.md).
 
 ## Using Tools
 

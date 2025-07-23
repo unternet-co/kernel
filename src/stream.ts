@@ -4,6 +4,11 @@ import {
   Message,
   ToolCallsMessage,
   ReplyMessage,
+  SystemMessage,
+  InputMessage,
+  ReasoningMessage,
+  LogMessage,
+  ToolResultsMessage,
   renderMessages,
   MessageMetadata,
 } from './messages.js';
@@ -11,14 +16,17 @@ import { Tool, renderTools } from './tools.js';
 import { LanguageModel } from './types.js';
 import { streamText } from 'ai';
 
-export type MessageDelta = ReplyMessageDelta;
-
-export interface ReplyMessageDelta extends MessageMetadata {
-  type: 'reply.delta';
-  id: Message['id'];
+interface BaseMessageDelta extends MessageMetadata {
+  type: 'delta';
+  id: string;
   final?: boolean;
-  delta: Partial<Omit<ReplyMessage, 'type' | keyof MessageMetadata>>;
 }
+
+// Currently only ReplyMessage deltas are used, but structured for future expansion
+export type MessageDelta = BaseMessageDelta & {
+  messageType: 'reply';
+  delta: Partial<Omit<ReplyMessage, 'type' | keyof MessageMetadata>>;
+};
 
 export interface StreamOptions {
   model: LanguageModel;
@@ -69,15 +77,17 @@ export class MessageStream {
             });
 
             yield {
-              type: 'reply.delta',
+              type: 'delta',
+              messageType: 'reply',
               id: streamingMessage.id,
               timestamp: streamingMessage.timestamp,
               delta: { text: '' },
             };
           }
 
-          const messageDelta: ReplyMessageDelta = {
-            type: 'reply.delta',
+          const messageDelta: MessageDelta = {
+            type: 'delta',
+            messageType: 'reply',
             id: streamingMessage.id,
             timestamp: streamingMessage.timestamp,
             delta: { text: part.textDelta },
