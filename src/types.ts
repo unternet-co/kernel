@@ -4,7 +4,7 @@ export type JSONValue =
   | string
   | number
   | boolean
-  | null
+  | Record<string, never>
   | JSONValue[]
   | { [key: string]: JSONValue };
 

@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Interpreter } from '../src/interpreter.js';
+import { Kernel } from '../src/kernel.js';
 import {
   createMessage,
   InputMessage,
   ToolResultsMessage,
 } from '../src/messages.js';
 
-describe('Interpreter', () => {
-  let interpreter: Interpreter;
+describe('Kernel', () => {
+  let kernel: Kernel;
 
   beforeEach(() => {
     // Use a minimal mock model that doesn't require the ai package
@@ -16,7 +16,7 @@ describe('Interpreter', () => {
       provider: 'test',
     } as any;
 
-    interpreter = new Interpreter({
+    kernel = new Kernel({
       model: mockModel,
       tools: [],
     });
@@ -24,12 +24,17 @@ describe('Interpreter', () => {
 
   describe('constructor and initial state', () => {
     it('initializes with idle status', () => {
-      expect(interpreter.status).toBe('idle');
+      expect(kernel.status).toBe('idle');
     });
 
     it('stores model and tools', () => {
-      expect(interpreter.model).toBeDefined();
-      expect(interpreter.tools).toEqual([]);
+      expect(kernel.model).toBeDefined();
+      expect(kernel.tools).toEqual([]);
+    });
+
+    it('initializes runtime and processes', () => {
+      expect(kernel.runtime).toBeDefined();
+      expect(kernel.processes).toEqual([]);
     });
   });
 
@@ -37,14 +42,25 @@ describe('Interpreter', () => {
     it('emits status events when status changes', () => {
       const events: string[] = [];
 
-      interpreter.on('idle', () => events.push('idle'));
-      interpreter.on('busy', () => events.push('busy'));
+      kernel.on('idle', () => events.push('idle'));
+      kernel.on('busy', () => events.push('busy'));
 
       // Private method access for testing status changes
-      (interpreter as any).setStatus('busy');
-      (interpreter as any).setStatus('idle');
+      (kernel as any).setStatus('busy');
+      (kernel as any).setStatus('idle');
 
       expect(events).toEqual(['busy', 'idle']);
+    });
+
+    it('emits process-changed events', () => {
+      let emitted = false;
+      kernel.on('process-changed', () => {
+        emitted = true;
+      });
+
+      // This would typically be triggered by process operations
+      (kernel.runtime as any).emit('process-changed', { pid: 'test-pid' });
+      expect(emitted).toBe(true);
     });
   });
 
@@ -63,7 +79,7 @@ describe('Interpreter', () => {
 
     it('creates valid tool results messages', () => {
       const toolResultsMessage = createMessage<ToolResultsMessage>({
-        type: 'tool_results',
+        type: 'tool-results',
         results: [
           {
             callId: 'test-call',
@@ -73,7 +89,7 @@ describe('Interpreter', () => {
         ],
       });
 
-      expect(toolResultsMessage.type).toBe('tool_results');
+      expect(toolResultsMessage.type).toBe('tool-results');
       expect(toolResultsMessage.results).toHaveLength(1);
       expect(toolResultsMessage.results[0].callId).toBe('test-call');
     });
@@ -83,18 +99,18 @@ describe('Interpreter', () => {
     it('accepts tools in constructor', () => {
       const tools = [
         {
-          type: 'function' as const,
           name: 'test-tool',
           description: 'A test tool',
+          execute: () => 'test result',
         },
       ];
 
-      const interpreterWithTools = new Interpreter({
+      const kernelWithTools = new Kernel({
         model: { modelId: 'test', provider: 'test' } as any,
         tools,
       });
 
-      expect(interpreterWithTools.tools).toEqual(tools);
+      expect(kernelWithTools.tools).toEqual(tools);
     });
   });
 });

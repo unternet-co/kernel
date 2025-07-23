@@ -6,8 +6,10 @@ import {
   CoreToolMessage,
   CoreUserMessage,
 } from 'ai';
+import { ToolCall, ToolResult } from './tools';
+import { ProcessContainer } from './processes';
 
-export type KernelMessage =
+export type Message =
   | SystemMessage
   | InputMessage
   | ReplyMessage
@@ -38,12 +40,9 @@ export interface InputMessage extends MessageMetadata {
   files?: FileAttachment[];
 }
 
-export interface ReplyMessageDetail {
-  text: string;
-}
-
-export interface ReplyMessage extends MessageMetadata, ReplyMessageDetail {
+export interface ReplyMessage extends MessageMetadata {
   type: 'reply';
+  text: string;
 }
 
 export interface ReasoningMessage extends MessageMetadata {
@@ -57,30 +56,17 @@ export interface LogMessage extends MessageMetadata {
   text: string;
 }
 
-export interface ToolCall {
-  id: string;
-  name: string;
-  args?: JSONValue;
-}
-
 export interface ToolCallsMessage extends MessageMetadata {
-  type: 'tool_calls';
+  type: 'tool-calls';
   calls: ToolCall[];
 }
 
-export interface ToolResult {
-  callId: string;
-  name: string;
-  output: any;
-  error?: string;
-}
-
 export interface ToolResultsMessage extends MessageMetadata {
-  type: 'tool_results';
+  type: 'tool-results';
   results: ToolResult[];
 }
 
-export function createMessage<T extends KernelMessage>(
+export function createMessage<T extends Message>(
   opts: Omit<T, 'id' | 'timestamp'>
 ): T {
   return {
@@ -96,12 +82,10 @@ export type RenderedMessage =
   | CoreAssistantMessage
   | CoreToolMessage;
 
-export function renderMessages(
-  msgs: Map<KernelMessage['id'], KernelMessage>
-): RenderedMessage[] {
+export function renderMessages(msgs: Message[]): RenderedMessage[] {
   const renderedMsgs: RenderedMessage[] = [];
 
-  for (const msg of msgs.values()) {
+  for (const msg of msgs) {
     if (msg.type === 'input' && msg.text?.trim()) {
       renderedMsgs.push({
         role: 'user',
@@ -123,7 +107,7 @@ export function renderMessages(
       });
     }
 
-    if (msg.type === 'tool_calls') {
+    if (msg.type === 'tool-calls') {
       renderedMsgs.push({
         role: 'assistant',
         content: msg.calls.map((call) => ({
@@ -135,15 +119,22 @@ export function renderMessages(
       });
     }
 
-    if (msg.type === 'tool_results') {
+    if (msg.type === 'tool-results') {
       renderedMsgs.push({
         role: 'tool',
-        content: msg.results.map((result) => ({
-          type: 'tool-result',
-          toolCallId: result.callId,
-          toolName: result.name,
-          result: result.output,
-        })),
+        content: msg.results.map((result) => {
+          const output =
+            result.output instanceof ProcessContainer
+              ? result.output.describe()
+              : result.output;
+
+          return {
+            type: 'tool-result',
+            toolCallId: result.callId ?? '',
+            toolName: result.name ?? '',
+            result: output,
+          };
+        }),
       });
     }
   }

@@ -6,8 +6,8 @@
       "path": "introduction"
     },
     {
-      "title": "Interpreter",
-      "path": "interpreter"
+      "title": "Kernel",
+      "path": "kernel"
     },
     {
       "title": "Messages",
@@ -16,6 +16,10 @@
     {
       "title": "Tools",
       "path": "tools"
+    },
+    {
+      "title": "Processes",
+      "path": "processes"
     },
     {
       "title": "CLI Example",
