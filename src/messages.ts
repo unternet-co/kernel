@@ -18,12 +18,13 @@ export type Message =
   | ToolCallsMessage
   | ToolResultsMessage;
 
-export interface MessageMetadata {
+export interface BaseMessage {
   id: string;
   timestamp: number;
+  type: string;
 }
 
-export interface SystemMessage extends MessageMetadata {
+export interface SystemMessage extends BaseMessage {
   type: 'system';
   text: string;
 }
@@ -34,46 +35,52 @@ export interface FileAttachment {
   mimeType?: string;
 }
 
-export interface InputMessage extends MessageMetadata {
+export interface InputMessage extends BaseMessage {
   type: 'input';
   text?: string;
   files?: FileAttachment[];
 }
 
-export interface ReplyMessage extends MessageMetadata {
+export interface ReplyMessage extends BaseMessage {
   type: 'reply';
   text: string;
 }
 
-export interface ReasoningMessage extends MessageMetadata {
+export interface ReasoningMessage extends BaseMessage {
   type: 'reasoning';
   title: string;
   summary: string;
 }
 
-export interface LogMessage extends MessageMetadata {
+export interface LogMessage extends BaseMessage {
   type: 'log';
   text: string;
 }
 
-export interface ToolCallsMessage extends MessageMetadata {
+export interface ToolCallsMessage extends BaseMessage {
   type: 'tool-calls';
   calls: ToolCall[];
 }
 
-export interface ToolResultsMessage extends MessageMetadata {
+export interface ToolResultsMessage extends BaseMessage {
   type: 'tool-results';
   results: ToolResult[];
 }
 
-export function createMessage<T extends Message>(
-  opts: Omit<T, 'id' | 'timestamp'>
-): T {
+type MessageTypeMap = {
+  [K in Message as K['type']]: K;
+};
+
+export function createMessage<T extends keyof MessageTypeMap>(
+  type: T,
+  opts: Omit<MessageTypeMap[T], 'id' | 'timestamp' | 'type'>
+): MessageTypeMap[T] {
   return {
     id: ulid(),
     timestamp: Date.now(),
+    type,
     ...opts,
-  } as T;
+  } as MessageTypeMap[T];
 }
 
 export type RenderedMessage =

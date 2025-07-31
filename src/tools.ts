@@ -1,5 +1,5 @@
 import { ToolSet } from 'ai';
-import { z, ZodSchema } from 'zod';
+import { z, ZodSchema, ZodType, ZodTypeDef } from 'zod';
 import { Process, ProcessContainer } from './processes';
 import { JSONValue } from './types';
 
@@ -9,8 +9,8 @@ export interface Tool<Schema = unknown> {
   description?: string;
   parameters?: Schema;
   execute?: (
-    args: Schema extends ZodSchema<infer U>
-      ? U
+    args: Schema extends ZodType<any, ZodTypeDef, any>
+      ? z.infer<Schema>
       : Schema extends undefined
         ? Record<string, never>
         : JSONValue
@@ -30,22 +30,21 @@ export interface ToolResult {
   error?: Error;
 }
 
-export function createTool<TSchema extends ZodSchema>(tool: {
-  name: string;
-  type?: string;
-  description?: string;
-  parameters: TSchema;
-  execute?: (
-    args: z.infer<TSchema>
-  ) => JSONValue | Promise<JSONValue> | Process;
-}): Tool<TSchema>;
+// export function createTool<TSchema extends ZodType<any, ZodTypeDef, any>>(tool: {
+//   name: string;
+//   type?: string;
+//   description?: string;
+//   parameters: TSchema;
+//   execute?: (
+//     args: z.infer<TSchema>
+//   ) => JSONValue | Promise<JSONValue> | Process | void;
+// }): Tool<TSchema>;
 export function createTool(tool: {
   name: string;
   type?: string;
   description?: string;
-  execute?: (
-    args: Record<string, never>
-  ) => JSONValue | Promise<JSONValue> | Process;
+  parameters: any;
+  execute?: (args: any) => JSONValue | Promise<JSONValue> | Process | void;
 }): Tool<undefined>;
 export function createTool(tool: any): any {
   return tool;

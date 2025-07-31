@@ -13,8 +13,7 @@ import { ToolCall, ToolResult } from '../src/tools.js';
 
 describe('createInputMessage', () => {
   it('creates input message with text and required fields', () => {
-    const message = createMessage<InputMessage>({
-      type: 'input',
+    const message: InputMessage = createMessage('input', {
       text: 'Hello world',
     });
 
@@ -33,8 +32,7 @@ describe('createInputMessage', () => {
       },
     ];
 
-    const message = createMessage<InputMessage>({
-      type: 'input',
+    const message: InputMessage = createMessage('input', {
       files,
     });
 
@@ -45,8 +43,7 @@ describe('createInputMessage', () => {
 
   it('creates input message with both text and files', () => {
     const files = [{ data: new Uint8Array([1, 2, 3]) }];
-    const message = createMessage<InputMessage>({
-      type: 'input',
+    const message: InputMessage = createMessage('input', {
       text: 'Check this file',
       files,
     });
@@ -58,8 +55,7 @@ describe('createInputMessage', () => {
 
 describe('createReplyMessage', () => {
   it('creates a reply message with text', () => {
-    const message = createMessage<ReplyMessage>({
-      type: 'reply',
+    const message: ReplyMessage = createMessage('reply', {
       text: 'This is a reply.',
     });
 
@@ -71,8 +67,7 @@ describe('createReplyMessage', () => {
 
 describe('createReasoningMessage', () => {
   it('creates a reasoning message with title and summary', () => {
-    const message = createMessage<ReasoningMessage>({
-      type: 'reasoning',
+    const message: ReasoningMessage = createMessage('reasoning', {
       title: 'Thinking...',
       summary: 'I am thinking about the problem.',
     });
@@ -86,8 +81,7 @@ describe('createReasoningMessage', () => {
 
 describe('createLogMessage', () => {
   it('creates a log message with text', () => {
-    const message = createMessage<LogMessage>({
-      type: 'log',
+    const message: LogMessage = createMessage('log', {
       text: 'An event occurred.',
     });
 
@@ -103,8 +97,7 @@ describe('createToolCallsMessage', () => {
       { id: 'call_1', name: 'get_weather', args: { city: 'San Francisco' } },
       { id: 'call_2', name: 'get_time', args: { timezone: 'PST' } },
     ];
-    const message = createMessage<ToolCallsMessage>({
-      type: 'tool-calls',
+    const message: ToolCallsMessage = createMessage('tool-calls', {
       calls,
     });
     expect(message.type).toBe('tool-calls');
@@ -129,8 +122,7 @@ describe('createToolResultsMessage', () => {
         error: undefined,
       },
     ];
-    const message = createMessage<ToolResultsMessage>({
-      type: 'tool-results',
+    const message: ToolResultsMessage = createMessage('tool-results', {
       results,
     });
     expect(message.type).toBe('tool-results');
@@ -148,8 +140,7 @@ describe('createToolResultsMessage', () => {
         error: new Error('API rate limit exceeded'),
       },
     ];
-    const message = createMessage<ToolResultsMessage>({
-      type: 'tool-results',
+    const message: ToolResultsMessage = createMessage('tool-results', {
       results,
     });
     expect(message.results[0].error).toBeInstanceOf(Error);
@@ -160,8 +151,7 @@ describe('createToolResultsMessage', () => {
 
 describe('createSystemMessage', () => {
   it('creates a system message with text', () => {
-    const message = createMessage<SystemMessage>({
-      type: 'system',
+    const message: SystemMessage = createMessage('system', {
       text: 'Tool call completed.',
     });
 

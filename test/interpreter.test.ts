@@ -66,8 +66,7 @@ describe('Kernel', () => {
 
   describe('message validation', () => {
     it('creates valid input messages', () => {
-      const inputMessage = createMessage<InputMessage>({
-        type: 'input',
+      const inputMessage: InputMessage = createMessage('input', {
         text: 'Hello world',
       });
 
@@ -78,16 +77,18 @@ describe('Kernel', () => {
     });
 
     it('creates valid tool results messages', () => {
-      const toolResultsMessage = createMessage<ToolResultsMessage>({
-        type: 'tool-results',
-        results: [
-          {
-            callId: 'test-call',
-            name: 'test-tool',
-            output: 'test result',
-          },
-        ],
-      });
+      const toolResultsMessage: ToolResultsMessage = createMessage(
+        'tool-results',
+        {
+          results: [
+            {
+              callId: 'test-call',
+              name: 'test-tool',
+              output: 'test result',
+            },
+          ],
+        }
+      );
 
       expect(toolResultsMessage.type).toBe('tool-results');
       expect(toolResultsMessage.results).toHaveLength(1);

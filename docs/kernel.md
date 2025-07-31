@@ -27,8 +27,7 @@ kernel.on('process-changed', () => {
 });
 
 // Send a message to start the conversation
-const inputMessage = createMessage<InputMessage>({
-  type: 'input',
+const inputMessage: InputMessage = createMessage('input', {
   text: 'Hello!',
 });
 

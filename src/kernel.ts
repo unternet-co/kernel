@@ -1,17 +1,12 @@
 import { createStream, MessageDelta, MessageStream } from './stream';
-import { Runtime } from './runtime';
-import { JSONValue, LanguageModel } from './types';
+import { Runtime, RuntimeEvents } from './runtime';
+import { LanguageModel } from './types';
 import { Tool } from './tools';
-import {
-  createMessage,
-  Message,
-  ReplyMessage,
-  SystemMessage,
-  ToolResultsMessage,
-} from './messages';
+import { createMessage, Message, ReplyMessage } from './messages';
 import { ToolCall, ToolResult } from './tools';
 import { Emitter } from './emitter';
-import { Process, ProcessContainer } from './processes';
+import { Process } from './processes';
+import { DEFAULT_MESSAGE_LIMIT } from './constants';
 
 export interface KernelOpts {
   model: LanguageModel;
@@ -20,48 +15,49 @@ export interface KernelOpts {
   messageLimit?: number;
 }
 
-const defaultOpts = {
-  messages: [] as Message[],
-  messageLimit: 100,
-  tools: [] as Tool[],
-} as const;
-
 type KernelEvents = {
   message: Message | MessageDelta;
-  'process-changed': undefined;
   idle: undefined;
   busy: undefined;
-};
+} & Omit<RuntimeEvents, 'process.tool-result'>;
 
 type KernelStatus = 'idle' | 'busy';
 
 export class Kernel extends Emitter<KernelEvents> {
   model: LanguageModel;
-  runtime: Runtime;
-  tools: Tool[];
-  messageLimit: number;
+  tools: Tool[] = [];
+  messageLimit: number = DEFAULT_MESSAGE_LIMIT;
+  runtime = new Runtime();
+  spawn = this.runtime.spawn.bind(this.runtime);
+  restore = this.runtime.restore.bind(this.runtime);
+  registerProcessConstructor = this.runtime.registerProcessConstructor.bind(
+    this.runtime
+  );
   private _messages = new Map<Message['id'], Message>();
   private _streams = new Map<string, MessageStream>();
   private _status: KernelStatus = 'idle';
 
   constructor(opts: KernelOpts) {
     super();
-    const config = { ...defaultOpts, ...opts };
+    this.model = opts.model;
+    if (opts.messageLimit) this.messageLimit = opts.messageLimit;
+    if (opts.tools) this.tools = opts.tools;
+    if (opts.messages) this.messages = opts.messages;
 
-    this.model = config.model;
-    this.runtime = new Runtime();
-    this.messageLimit = config.messageLimit;
-    this.messages = config.messages;
-    this.tools = config.tools;
-
-    this.runtime.on('process-changed', () => {
-      this.emit('process-changed');
+    this.runtime.on('process.created', (e) => {
+      this.emit('process.created', e);
+    });
+    this.runtime.on('process.changed', (e) => {
+      this.emit('process.changed', e);
+    });
+    this.runtime.on('process.exited', (e) => {
+      this.emit('process.exited', e);
     });
 
-    this.runtime.on('tool-result', () => {
+    this.runtime.on('process.tool-result', (e) => {
+      // TODO: Propert implementation of process results
       this.send(
-        createMessage<SystemMessage>({
-          type: 'system',
+        createMessage('system', {
           text: `Tool call completed.`,
         })
       );
@@ -178,7 +174,8 @@ export class Kernel extends Emitter<KernelEvents> {
       const tool = this.tools.find((t) => t.name === name);
 
       if (!tool?.execute) {
-        throw new Error(`Unknown or invalid tool: ${name}`);
+        return;
+        // throw new Error(`Unknown or invalid tool: ${name}`);
       }
 
       let rawOutput = await tool.execute(args);
@@ -195,11 +192,6 @@ export class Kernel extends Emitter<KernelEvents> {
       });
     }
 
-    this.send(
-      createMessage<ToolResultsMessage>({
-        type: 'tool-results',
-        results,
-      })
-    );
+    this.send(createMessage('tool-results', { results }));
   }
 }
