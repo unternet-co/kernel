@@ -9,17 +9,24 @@ For more information, see the [documentation](docs/introduction.md).
 Try the example chat interface:
 
 ```bash
-cd example
+cd cli
 npm install
 echo "OPENAI_API_KEY=your_key_here" > .env
-npm start
+npm run dev
 ```
 
-This will start an interactive chat session.
+This will start an interactive chat session. If you want to use the built-in web search tool, you'll also need a SERP API key (otherwise you can add your own tools).
 
-## Current status
+## Roadmap
 
-This is in frenetic development. Don't expect too much yet, nor API stability.
+This is in early, rapid development. It's not yet feature complete or stable.
+
+Here's the immediate roadmap:
+
+- [ ] Full process lifecycle, including suspending & resuming (in progress)
+- [ ] Kernel extensions to handle arbitrary tool protocols including Web Applets & MCP
+- [ ] Support for GUI-based processes that can render views
+- [ ] Pluggable memory module, so the Kernel can keep track of long-term state
 
 ## Releasing
 

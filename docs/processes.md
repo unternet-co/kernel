@@ -27,7 +27,7 @@ class Counter extends Process<CounterState> {
   name = 'Counter';
   state = { count: 0 };
 
-  async activate() {
+  async onResume() {
     setTimeout(
       () =>
         this.setState({

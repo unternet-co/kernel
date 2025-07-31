@@ -22,7 +22,7 @@ kernel.on('message', (message) => {
 });
 
 // Listen for process changes
-kernel.on('process-changed', () => {
+kernel.on('process.changed', () => {
   console.log('Active processes:', kernel.processes.length);
 });
 
@@ -39,7 +39,7 @@ kernel.send(inputMessage);
 - `message` - Emitted for all message types (responses, deltas, tool calls, etc.)
 - `idle` - Kernel is ready to accept new messages
 - `busy` - Kernel is processing a request
-- `process-changed` - A process was added, removed, or changed state
+- `process.changed` - A process was added, removed, or changed state
 
 ## Configuration
 
