@@ -6,27 +6,11 @@
       "path": "introduction"
     },
     {
-      "title": "Kernel",
-      "path": "kernel"
-    },
-    {
       "title": "Messages",
       "path": "messages"
     },
     {
-      "title": "Tools",
-      "path": "tools"
-    },
-    {
-      "title": "Processes",
-      "path": "processes"
-    },
-    {
-      "title": "Runtime",
-      "path": "runtime"
-    },
-    {
-      "title": "CLI Example",
+      "title": "CLI",
       "path": "cli"
     }
   ]

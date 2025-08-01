@@ -60,12 +60,12 @@ export class Process<T = unknown>
   /**
    * This is run whenever the process is started or resumed.
    */
-  onResume(): void | Promise<void> {}
+  activate(): void | Promise<void> {}
 
   /**
    * This is run whenever the process is suspended or exited.
    */
-  onSuspend(): void | Promise<void> {}
+  deactivate(): void | Promise<void> {}
 
   /**
    * Update the current state of the process & notify listeners.
@@ -85,6 +85,7 @@ export class Process<T = unknown>
   /**
    * Call a tool on this process.
    */
+  // TODO
   call(toolCall: ToolCall) {}
 
   /**
@@ -136,32 +137,40 @@ export class ProcessContainer
     this.type = process.type;
     this._process = process;
     this._snapshot = this.serialize();
+    // TODO
     process.on('change', () => this.emit('change'));
-    process.on('tool-result', (e) => this.emit('tool-result', e));
-    process.exit = () => this.emit('exit');
+    process.exit = () => this.exit();
   }
 
   describe() {
     return this._process?.describe();
   }
 
-  call(toolCall: ToolCall) {
-    if (!this._process) throw new Error('Resume container with no process.');
-    this._process?.call(toolCall);
+  async call(toolCall: ToolCall) {
+    // TODO
+    const output = await this._process?.call(toolCall);
+    this.emit('tool-result', {
+      callId: toolCall.id,
+      output,
+    });
   }
 
-  resume() {
-    if (!this._process) throw new Error('Resume container with no process.');
-    this.emit('resume');
-  }
-
-  suspend() {
-    if (!this._process) throw new Error('Suspend container with no process.');
+  // TODO
+  suspend() {}
+  handleSuspend() {
+    this._process?.deactivate();
     this.emit('suspend');
   }
 
-  exit() {
-    if (!this._process) throw new Error('Exit container with no process.');
+  resume() {}
+  handleResume() {
+    this._process?.activate();
+    this.emit('resume');
+  }
+
+  exit() {}
+  handleExit() {
+    this._process?.deactivate();
     this.emit('exit');
   }
 
