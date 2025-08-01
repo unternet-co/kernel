@@ -2,28 +2,30 @@ import { ulid } from 'ulid';
 import { Emitter } from './emitter';
 import { ResourceIcon } from './resources';
 import { JSONValue } from 'ai';
-import { Tool, ToolResult } from './tools';
+import { ToolCall, ToolResult } from './tools';
 
-export type ProcessStatus = 'running' | 'suspended' | 'exited';
+export type ProcessStatus = 'running' | 'suspended';
+export type ProcessConstructor = new (state?: any) => Process;
 
 // These are properties that all processes are expected to implement
 // ...but they're optional because this is the web after all. Do what you want.
 export interface ProcessMetadata {
-  title?: string;
+  name?: string;
   icons?: ResourceIcon[];
 }
 
 // This is what a ProcessContainer will save & rehydrate from.
 // The inner process only sees what's inside 'state'
 export interface ProcessSnapshot extends ProcessMetadata {
-  pid: string;
-  state: any;
+  id: string;
+  type: string;
+  status: ProcessStatus;
+  state: JSONValue;
 }
 
 export type ProcessEvents = {
   change: undefined;
   'tool-result': ToolResult;
-  exit: undefined;
 };
 
 /**
@@ -34,6 +36,7 @@ export class Process<T = unknown>
   extends Emitter<ProcessEvents>
   implements ProcessMetadata
 {
+  type: string | null = null;
   name?: string;
   icons?: ResourceIcon[];
   suspendable: boolean = true;
@@ -43,6 +46,9 @@ export class Process<T = unknown>
     super();
     if (state) this.state = state;
   }
+
+  // Overridden by process container
+  exit(): void {}
 
   /**
    * Instantiate a new process, based on serialized state from serialize()
@@ -61,12 +67,8 @@ export class Process<T = unknown>
    */
   deactivate(): void | Promise<void> {}
 
-  private exit() {
-    this.emit('exit');
-  }
-
   /**
-   * Update the current state of the process & notify listeners. Override if you're not using state.
+   * Update the current state of the process & notify listeners.
    */
   setState(newState: T) {
     this.state = newState;
@@ -77,64 +79,39 @@ export class Process<T = unknown>
    * Describe the process to the model.
    */
   describe(): JSONValue {
-    return this.snapshot;
+    return this.serialize();
   }
 
   /**
    * Call a tool on this process.
    */
-  call(tool: Tool) {}
+  // TODO
+  call(toolCall: ToolCall) {}
 
   /**
    * Return a snapshot of serialiable data, for rehydration.
-   * Also used for describing the current state to the model by default.
    */
   serialize(): JSONValue {
     if (this.state) return this.state;
     return null;
   }
-
-  /**
-   * Gets the current snapshot, using serialize().
-   */
-  get snapshot() {
-    return this.serialize() ?? {};
-  }
 }
 
 export type ProcessContainerEvents = ProcessEvents & {
-  start: undefined;
-  suspend: undefined;
   resume: undefined;
+  suspend: undefined;
   exit: undefined;
 };
 
-export class ProcessContainer extends Emitter<ProcessContainerEvents> {
+export class ProcessContainer
+  extends Emitter<ProcessContainerEvents>
+  implements ProcessMetadata
+{
+  readonly type: string;
   private _id: string;
-  private _status: string = 'running';
+  private _status: ProcessStatus = 'suspended';
   private _process?: Process;
-
-  constructor(id?: string) {
-    super();
-    this._id = id ?? ulid();
-  }
-
-  static wrap(process: Process) {
-    const container = new ProcessContainer();
-    container._process = process;
-
-    process.on('change', () => container.emit('change'));
-    process.on('exit', () => container.exit());
-    process.on('tool-result', (result) =>
-      container.emit('tool-result', result)
-    );
-
-    return container;
-  }
-
-  describe() {
-    return this._process?.describe();
-  }
+  private _snapshot?: ProcessSnapshot;
 
   get id() {
     return this._id;
@@ -145,16 +122,64 @@ export class ProcessContainer extends Emitter<ProcessContainerEvents> {
   get name() {
     return this._process?.name;
   }
-
-  start() {
-    if (!this._process) throw new Error('Start container with no process.');
-    this._process.activate();
-    this.emit('start');
+  get icons() {
+    return this._process?.icons;
+  }
+  get snapshot() {
+    return this._snapshot;
   }
 
-  exit() {
-    if (!this._process) throw new Error('Exit container with no process.');
-    this._process.deactivate();
+  constructor(process: Process, id: string = ulid()) {
+    super();
+    this._id = id;
+    if (!process.type)
+      throw new Error(`Processes must specify a type property.`);
+    this.type = process.type;
+    this._process = process;
+    this._snapshot = this.serialize();
+    // TODO
+    process.on('change', () => this.emit('change'));
+    process.exit = () => this.exit();
+  }
+
+  describe() {
+    return this._process?.describe();
+  }
+
+  async call(toolCall: ToolCall) {
+    // TODO
+    const output = await this._process?.call(toolCall);
+    this.emit('tool-result', {
+      callId: toolCall.id,
+      output,
+    });
+  }
+
+  // TODO
+  suspend() {}
+  handleSuspend() {
+    this._process?.deactivate();
+    this.emit('suspend');
+  }
+
+  resume() {}
+  handleResume() {
+    this._process?.activate();
+    this.emit('resume');
+  }
+
+  exit() {}
+  handleExit() {
+    this._process?.deactivate();
     this.emit('exit');
+  }
+
+  serialize() {
+    return {
+      id: this.id,
+      type: this.type,
+      status: this.status,
+      state: this._process?.serialize() || {},
+    };
   }
 }

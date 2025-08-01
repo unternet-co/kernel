@@ -25,6 +25,6 @@ You can creat your own tools and add them to the CLI's kernel instance to add mo
 
 ## What's next?
 
-Beyond a demo, the CLI isn't particularly useful yet (nor is it designed to be a 'product'). However, more extensibility & capabilities for the kernel are planned in the near future.
+Beyond a demo, the CLI isn't particularly useful yet. However, more extensibility & capabilities for the kernel are planned in the near future.
 
 If you add something interesting, we'd love to know. Email `hello@unternet.co`.

@@ -1,90 +1,105 @@
-import { JSONValue } from 'ai';
 import { Emitter } from './emitter';
-import { Process, ProcessContainer } from './processes';
-import { PromiseProcess } from './promise-process';
+import {
+  Process,
+  ProcessContainer,
+  ProcessSnapshot,
+  ProcessConstructor,
+} from './processes';
 import { ToolResult } from './tools';
 
-type RuntimeEvents = {
-  'process-started': ProcessContainer;
-  'process-changed': { pid: ProcessContainer['id'] };
-  'process-exited': { pid: ProcessContainer['id'] };
-  'tool-result': { pid: ProcessContainer['id']; result: ToolResult };
+export type RuntimeEvents = {
+  'process.created': { pid: ProcessContainer['id']; process: ProcessContainer };
+  'process.restored': {
+    pid: ProcessContainer['id'];
+    process: ProcessContainer;
+  };
+  'process.resumed': { pid: ProcessContainer['id']; process: ProcessContainer };
+  'process.changed': { pid: ProcessContainer['id']; process: ProcessContainer };
+  'process.exited': { pid: ProcessContainer['id'] };
+  'process.tool-result': { pid: ProcessContainer['id']; result: ToolResult };
 };
-
-type ExecutionFunction = () =>
-  | JSONValue
-  | Promise<JSONValue>
-  | AsyncIterator<JSONValue>
-  | Process;
 
 export class Runtime extends Emitter<RuntimeEvents> {
   private _processes = new Map<ProcessContainer['id'], ProcessContainer>();
+  private constructors = new Map<string, ProcessConstructor>();
 
   get processes(): ProcessContainer[] {
     return Array.from(this._processes.values());
   }
 
-  // TODO: Should probably be "queue" and give an event of an output
-  // exec(fn: ExecutionFunction): ProcessContainer | JSONValue {
-  //   const value = fn();
+  registerProcessConstructor(type: string, ctor: ProcessConstructor) {
+    if (this.constructors.has(type)) {
+      throw new Error(`Constructor already registered for type '${type}'.`);
+    }
 
-  //   if (isPromise(value)) {
-  //     return this.spawn(new PromiseProcess(value));
-  //   }
-
-  //   if (isProcess(value)) {
-  //     return this.spawn(value);
-  //   }
-
-  //   if (isAsyncIterator(value)) {
-  //     throw new Error('Not implemented yet.');
-  //   }
-
-  //   return value;
-  // }
+    this.constructors.set(type, ctor);
+  }
 
   spawn(process: Process) {
-    const container = ProcessContainer.wrap(process);
-
-    // Attach event listeners
-    container.on('change', () => {
-      this.emit('process-changed', { pid: container.id });
-    });
-    container.on('exit', () => {
-      const pid = container.id;
-      this._processes.delete(pid);
-      this.emit('process-changed', { pid });
-      this.emit('process-exited', { pid });
-    });
-    container.on('tool-result', (result: ToolResult) => {
-      this.emit('tool-result', { pid: container.id, result });
-    });
-
-    this._processes.set(container.id, container);
-    this.emit('process-started', container);
-    this.emit('process-changed', { pid: container.id });
+    const container = this.registerProcess(process);
+    this.emit('process.created', { pid: container.id, process: container });
+    container.resume();
     return container;
   }
 
-  find(pid: ProcessContainer['id']) {
-    return this._processes.get(pid);
+  private registerProcess(
+    process: Process,
+    id?: ProcessContainer['id']
+  ): ProcessContainer {
+    const container = new ProcessContainer(process, id);
+
+    container.on('change', () => {
+      this.emit('process.changed', { pid: container.id, process: container });
+    });
+
+    container.on('resume', () => {
+      this.emit('process.resumed', { pid: container.id, process: container });
+    });
+
+    container.on('exit', () => {
+      this._processes.delete(container.id);
+      this.emit('process.exited', { pid: container.id });
+    });
+
+    container.on('tool-result', (result: ToolResult) => {
+      this.emit('process.tool-result', { pid: container.id, result });
+    });
+
+    this._processes.set(container.id, container);
+    return container;
   }
-}
 
-function isPromise(value: any): value is Promise<unknown> {
-  return (
-    !!value && typeof value === 'object' && typeof value.then === 'function'
-  );
-}
+  restore(snapshot: ProcessSnapshot) {
+    if (!this.constructors.has(snapshot.type)) {
+      throw new Error(
+        `No constructor found for process type ${snapshot.type}.`
+      );
+    }
 
-function isProcess(value: any): value is Process {
-  return value instanceof Process;
-}
+    const ctor = this.constructors.get(snapshot.type)!;
+    const process = new ctor(snapshot.state);
+    process.name = snapshot.name;
+    process.icons = snapshot.icons;
 
-function isAsyncIterator<T = any>(value: any): value is AsyncIterator<T> {
-  return (
-    !!value &&
-    typeof value === 'object' &&
-    typeof value[Symbol.asyncIterator] === 'function'
-  );
+    const container = this.registerProcess(process, snapshot.id);
+    this.emit('process.restored', { pid: container.id, process: container });
+
+    return container;
+  }
+
+  find(id: ProcessContainer['id']) {
+    return this._processes.get(id);
+  }
+
+  kill(id: ProcessContainer['id']) {
+    const container = this._processes.get(id);
+    if (!container)
+      throw new Error(`Tried to kill non-existent process: ${id}`);
+    container.suspend();
+    this._processes.delete(id);
+  }
+
+  killall() {
+    for (const id of this._processes.keys()) this.kill(id);
+  }
 }

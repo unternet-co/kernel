@@ -10,13 +10,13 @@ import {
   LogMessage,
   ToolResultsMessage,
   renderMessages,
-  MessageMetadata,
+  BaseMessage,
 } from './messages.js';
 import { Tool, renderTools } from './tools.js';
 import { LanguageModel } from './types.js';
 import { streamText } from 'ai';
 
-interface BaseMessageDelta extends MessageMetadata {
+interface BaseMessageDelta extends BaseMessage {
   type: 'delta';
   id: string;
   final?: boolean;
@@ -25,7 +25,7 @@ interface BaseMessageDelta extends MessageMetadata {
 // Currently only ReplyMessage deltas are used, but structured for future expansion
 export type MessageDelta = BaseMessageDelta & {
   messageType: 'reply';
-  delta: Partial<Omit<ReplyMessage, 'type' | keyof MessageMetadata>>;
+  delta: Partial<Omit<ReplyMessage, keyof BaseMessage>>;
 };
 
 export interface StreamOptions {
@@ -71,8 +71,7 @@ export class MessageStream {
 
         if (part.type === 'text-delta') {
           if (!streamingMessage) {
-            streamingMessage = createMessage<ReplyMessage>({
-              type: 'reply',
+            streamingMessage = createMessage('reply', {
               text: '',
             });
 
@@ -98,8 +97,7 @@ export class MessageStream {
         }
 
         if (part.type === 'tool-call') {
-          yield createMessage<ToolCallsMessage>({
-            type: 'tool-calls',
+          yield createMessage('tool-calls', {
             calls: [
               {
                 id: ulid(),

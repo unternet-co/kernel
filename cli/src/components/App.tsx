@@ -18,8 +18,7 @@ export const App = () => {
 
   const handleSubmit = (text: string) => {
     sendMessage(
-      createMessage<InputMessage>({
-        type: 'input',
+      createMessage('input', {
         text: text,
       })
     );
