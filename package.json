@@ -1,6 +1,6 @@
 {
   "name": "@unternet/kernel",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "The cognitive engine for intelligent applications.",
   "main": "dist/index.js",
   "type": "module",
