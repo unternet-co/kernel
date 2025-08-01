@@ -1,32 +1,30 @@
-import { Interpreter, Message, ProcessContainer } from '@unternet/kernel';
-import { Runtime } from 'inspector/promises';
+import {
+  Kernel,
+  KernelOpts,
+  Message,
+  ProcessContainer,
+} from '@unternet/kernel';
 import { useState, useEffect, useRef } from 'react';
 
 export function useKernel(opts: KernelOpts) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [processes, setProcesses] = useState<ProcessContainer[]>([]);
-  const interpreter = useRef<Interpreter | null>(null);
-  const runtime = useRef<Runtime | null>(null);
+  const kernel = useRef<Kernel | null>(null);
 
   useEffect(() => {
-    interpreter.current = new Interpreter(opts);
-    runtime.current = new Runtime();
+    kernel.current = new Kernel(opts);
 
-    interpreter.current.on('message', (msg) => {
-      setMessages(interpreter.current?.messages || []);
-
-      if (msg.type === 'tool-call') {
-      }
+    kernel.current.on('message', () => {
+      setMessages(kernel.current?.messages || []);
     });
 
-    interpreter.current.on('process-changed', () => {
+    kernel.current.on('process.changed', () => {
       setProcesses(kernel.current?.processes || []);
     });
   }, []);
 
   function sendMessage(msg: Message) {
-    interpreter.current?.send(msg);
-    setMessages(interpreter.current?.messages || []);
+    kernel.current?.send(msg);
   }
 
   return { messages, sendMessage, processes };
