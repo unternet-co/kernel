@@ -13,7 +13,7 @@ export type ProcessEvents = {
  * A process is a long-running task that can be suspended or resumed,
  * and serialized.
  */
-export class Process<Snapshot = any>
+export class Process<SnapshotType = any>
   extends Emitter<ProcessEvents>
   implements ProcessMetadata
 {
@@ -22,7 +22,7 @@ export class Process<Snapshot = any>
   icons?: ResourceIcon[];
   suspendable: boolean = true;
 
-  constructor(snapshot?: Snapshot) {
+  constructor(snapshot?: SnapshotType) {
     super();
   }
 
@@ -61,7 +61,7 @@ export class Process<Snapshot = any>
   /**
    * Return a snapshot of serialiable data, for rehydration.
    */
-  serialize(): any {
+  serialize(): SnapshotType | Record<string, never> {
     return {};
   }
 }

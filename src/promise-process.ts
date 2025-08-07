@@ -6,7 +6,7 @@ interface PromiseProcessState {
 }
 
 export class PromiseProcess extends Process<PromiseProcessState> {
-  state = { status: 'in progress' };
+  output: any = 'Working...';
   suspendable = false;
 
   constructor(name: string, promise: () => Promise<unknown>) {
@@ -16,10 +16,9 @@ export class PromiseProcess extends Process<PromiseProcessState> {
   }
 
   async await(promise: () => Promise<unknown>) {
-    const output = await promise();
-    this.setState({ status: 'completed', output });
-    this.emit('tool-result', { output });
-    console.log('emitted');
+    this.output = await promise();
+    this.emit('change');
+    this.emit('tool-result', { output: this.output });
     this.exit();
   }
 }

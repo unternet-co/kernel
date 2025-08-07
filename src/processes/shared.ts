@@ -3,7 +3,11 @@ import { JSONValue } from '../types';
 import { Process } from './process';
 
 export type ProcessStatus = 'running' | 'suspended';
-export type ProcessConstructor = typeof Process;
+
+export interface ProcessConstructor {
+  new (...args: any[]): Process;
+  type: string; // Include static properties you need
+}
 
 // These are properties that all processes are expected to implement
 // ...but they're optional because this is the web after all. Do what you want.

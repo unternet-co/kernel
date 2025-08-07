@@ -17,7 +17,7 @@ export class ProcessContainer
   readonly type?: string;
   private _id: string;
   private _status: ProcessStatus = 'suspended';
-  private _process?: Process;
+  _process?: Process;
   private _snapshot?: ProcessSnapshot;
 
   get id() {
@@ -33,6 +33,7 @@ export class ProcessContainer
     return this._process?.icons;
   }
   get snapshot() {
+    if (this._process) return this.serialize();
     return this._snapshot;
   }
 

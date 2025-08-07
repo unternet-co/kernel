@@ -5,7 +5,8 @@ import { Tool } from './tools';
 import { createMessage, Message, ReplyMessage } from './messages';
 import { ToolCall, ToolResult } from './tools';
 import { Emitter } from './emitter';
-import { Process, ProcessContainer } from './processes/process';
+import { Process } from './processes/process';
+import { ProcessContainer } from './processes/process-container';
 import { DEFAULT_MESSAGE_LIMIT } from './constants';
 
 export interface KernelOpts {
