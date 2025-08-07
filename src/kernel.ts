@@ -5,7 +5,7 @@ import { Tool } from './tools';
 import { createMessage, Message, ReplyMessage } from './messages';
 import { ToolCall, ToolResult } from './tools';
 import { Emitter } from './emitter';
-import { Process } from './processes';
+import { Process, ProcessContainer } from './processes/process';
 import { DEFAULT_MESSAGE_LIMIT } from './constants';
 
 export interface KernelOpts {
@@ -30,6 +30,7 @@ export class Kernel extends Emitter<KernelEvents> {
   runtime = new Runtime();
   spawn = this.runtime.spawn.bind(this.runtime);
   restore = this.runtime.restore.bind(this.runtime);
+  kill = this.runtime.kill.bind(this.runtime);
   registerProcessConstructor = this.runtime.registerProcessConstructor.bind(
     this.runtime
   );
@@ -178,17 +179,20 @@ export class Kernel extends Emitter<KernelEvents> {
         // throw new Error(`Unknown or invalid tool: ${name}`);
       }
 
-      let rawOutput = await tool.execute(args);
+      let output = await tool.execute(args);
 
-      const output =
-        rawOutput instanceof Process
-          ? this.runtime.spawn(rawOutput)
-          : rawOutput;
+      let proc: ProcessContainer | null = null;
+      // if (output instanceof Process) {
+      //   proc = this.runtime.spawn(output);
+      // }
 
+      // TODO: Handle this better, in the stream
+      // We shouldn't emit a result if it's a process
+      // and move the containing function to runtime
       results.push({
         callId: id,
         name: name,
-        output,
+        output: proc ?? output,
       });
     }
 

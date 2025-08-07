@@ -9,6 +9,7 @@ For more information, see the [documentation](docs/introduction.md).
 Try the example chat interface:
 
 ```bash
+npm install && npm run build
 cd cli
 npm install
 echo "OPENAI_API_KEY=your_key_here" > .env

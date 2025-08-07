@@ -1,6 +1,7 @@
 export { type LanguageModel } from 'ai';
 
 export type JSONValue =
+  | undefined
   | string
   | number
   | boolean

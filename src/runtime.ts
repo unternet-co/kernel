@@ -1,10 +1,7 @@
 import { Emitter } from './emitter';
-import {
-  Process,
-  ProcessContainer,
-  ProcessSnapshot,
-  ProcessConstructor,
-} from './processes';
+import { Process } from './processes/process';
+import { ProcessContainer } from './processes/process-container';
+import { ProcessConstructor, ProcessSnapshot } from './processes/shared';
 import { ToolResult } from './tools';
 
 export type RuntimeEvents = {
@@ -15,6 +12,10 @@ export type RuntimeEvents = {
   };
   'process.resumed': { pid: ProcessContainer['id']; process: ProcessContainer };
   'process.changed': { pid: ProcessContainer['id']; process: ProcessContainer };
+  'process.suspended': {
+    pid: ProcessContainer['id'];
+    process: ProcessContainer;
+  };
   'process.exited': { pid: ProcessContainer['id'] };
   'process.tool-result': { pid: ProcessContainer['id']; result: ToolResult };
 };
@@ -27,7 +28,15 @@ export class Runtime extends Emitter<RuntimeEvents> {
     return Array.from(this._processes.values());
   }
 
-  registerProcessConstructor(type: string, ctor: ProcessConstructor) {
+  registerProcessConstructor(ctor: ProcessConstructor) {
+    const type = ctor.type;
+
+    if (!type) {
+      throw new Error(
+        `Tried to register process constructor with no static type property.`
+      );
+    }
+
     if (this.constructors.has(type)) {
       throw new Error(`Constructor already registered for type '${type}'.`);
     }
@@ -52,14 +61,21 @@ export class Runtime extends Emitter<RuntimeEvents> {
       this.emit('process.changed', { pid: container.id, process: container });
     });
 
-    container.on('resume', () => {
-      this.emit('process.resumed', { pid: container.id, process: container });
-    });
+    container.suspend = () => {
+      container.handleSuspend();
+      this.emit('process.suspended', { pid: container.id, process: container });
+    };
 
-    container.on('exit', () => {
+    container.resume = () => {
+      container.handleResume();
+      this.emit('process.resumed', { pid: container.id, process: container });
+    };
+
+    container.exit = () => {
+      container.handleExit();
       this._processes.delete(container.id);
       this.emit('process.exited', { pid: container.id });
-    });
+    };
 
     container.on('tool-result', (result: ToolResult) => {
       this.emit('process.tool-result', { pid: container.id, result });
@@ -70,6 +86,11 @@ export class Runtime extends Emitter<RuntimeEvents> {
   }
 
   restore(snapshot: ProcessSnapshot) {
+    console.log(snapshot);
+    if (!snapshot.type) {
+      throw new Error(`No type specified for snapshot with ID ${snapshot.id}.`);
+    }
+
     if (!this.constructors.has(snapshot.type)) {
       throw new Error(
         `No constructor found for process type ${snapshot.type}.`
@@ -78,8 +99,6 @@ export class Runtime extends Emitter<RuntimeEvents> {
 
     const ctor = this.constructors.get(snapshot.type)!;
     const process = new ctor(snapshot.state);
-    process.name = snapshot.name;
-    process.icons = snapshot.icons;
 
     const container = this.registerProcess(process, snapshot.id);
     this.emit('process.restored', { pid: container.id, process: container });

@@ -4,5 +4,5 @@ export * from './messages';
 export * from './stream';
 export * from './tools';
 export * from './emitter';
-export * from './processes';
+export * from './processes/process';
 export * from './promise-process';

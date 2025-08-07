@@ -1,4 +1,4 @@
-import { Process } from './processes';
+import { Process } from './processes/process';
 
 interface PromiseProcessState {
   status: string;
@@ -19,6 +19,7 @@ export class PromiseProcess extends Process<PromiseProcessState> {
     const output = await promise();
     this.setState({ status: 'completed', output });
     this.emit('tool-result', { output });
+    console.log('emitted');
     this.exit();
   }
 }

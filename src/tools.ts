@@ -1,6 +1,6 @@
 import { ToolSet } from 'ai';
 import { z, ZodSchema, ZodType, ZodTypeDef } from 'zod';
-import { Process, ProcessContainer } from './processes';
+import { Process, ProcessContainer } from './processes/process';
 import { JSONValue } from './types';
 
 export interface Tool<Schema = unknown> {
