@@ -1,8 +1,7 @@
 import { Process } from './processes/process';
 
 interface PromiseProcessState {
-  status: string;
-  output?: unknown;
+  output?: any;
 }
 
 export class PromiseProcess extends Process<PromiseProcessState> {
@@ -20,5 +19,11 @@ export class PromiseProcess extends Process<PromiseProcessState> {
     this.emit('change');
     this.emit('tool-result', { output: this.output });
     this.exit();
+  }
+
+  serialize() {
+    return {
+      output: this.output,
+    };
   }
 }

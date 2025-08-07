@@ -86,7 +86,6 @@ export class Runtime extends Emitter<RuntimeEvents> {
   }
 
   restore(snapshot: ProcessSnapshot) {
-    console.log(snapshot);
     if (!snapshot.type) {
       throw new Error(`No type specified for snapshot with ID ${snapshot.id}.`);
     }

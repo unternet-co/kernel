@@ -168,6 +168,7 @@ export class Kernel extends Emitter<KernelEvents> {
     }
   }
 
+  // TODO: Add this to runtime instead
   private async callTools(calls: ToolCall[]) {
     const results: ToolResult[] = [];
 
@@ -183,9 +184,9 @@ export class Kernel extends Emitter<KernelEvents> {
       let output = await tool.execute(args);
 
       let proc: ProcessContainer | null = null;
-      // if (output instanceof Process) {
-      //   proc = this.runtime.spawn(output);
-      // }
+      if (output instanceof Process) {
+        proc = this.runtime.spawn(output);
+      }
 
       // TODO: Handle this better, in the stream
       // We shouldn't emit a result if it's a process

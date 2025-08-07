@@ -17,7 +17,7 @@ export class ProcessContainer
   readonly type?: string;
   private _id: string;
   private _status: ProcessStatus = 'suspended';
-  _process?: Process;
+  private _process?: Process;
   private _snapshot?: ProcessSnapshot;
 
   get id() {
@@ -27,14 +27,13 @@ export class ProcessContainer
     return this._status;
   }
   get name() {
-    return this._process?.name;
+    return this._process?.name || this._snapshot?.name;
   }
   get icons() {
-    return this._process?.icons;
+    return this._process?.icons || this._snapshot?.icons;
   }
   get snapshot() {
-    if (this._process) return this.serialize();
-    return this._snapshot;
+    return this._process?.serialize() || this._snapshot;
   }
 
   constructor(process: Process, id: string = ulid()) {
@@ -47,6 +46,22 @@ export class ProcessContainer
     process.on('change', () => this.emit('change'));
     process.on('tool-result', (e) => this.emit('tool-result', e));
     process.exit = () => this.exit();
+
+    // Properties/functions on Process get automatically
+    // reflected to ProcessContainer
+    return new Proxy(this, {
+      get(target, prop, receiver) {
+        if (prop in target) return Reflect.get(target, prop, receiver);
+
+        if (target._process && prop in target._process) {
+          const value = (target._process as any)[prop];
+          if (typeof value === 'function') return value.bind(target._process);
+          return value;
+        }
+
+        return undefined;
+      },
+    });
   }
 
   describe() {
