@@ -24,7 +24,7 @@ This is in early, rapid development. It's not yet feature complete or stable.
 
 Here's the immediate roadmap:
 
-- [ ] Full process lifecycle, including suspending & resuming (in progress)
+- [x] Full process lifecycle, including suspending & resuming
 - [ ] Kernel extensions to handle arbitrary tool protocols including Web Applets & MCP
 - [ ] Support for GUI-based processes that can render views
 - [ ] Pluggable memory module, so the Kernel can keep track of long-term state
