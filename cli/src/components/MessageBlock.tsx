@@ -44,6 +44,7 @@ export const MessageBlock = React.memo(({ msg }: { msg: Message }) => {
   }
 
   if (msg.type === 'tool-results') {
+    console.log(msg);
     return (
       <Box marginTop={1} display="flex" flexDirection="column">
         <Text backgroundColor="magenta" color="black">

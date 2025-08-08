@@ -1,4 +1,4 @@
-import { createTool, PromiseProcess } from '@unternet/kernel';
+import { createPromiseProcess, createTool } from '@unternet/kernel';
 import { getJson } from 'serpapi';
 import { z } from 'zod';
 
@@ -38,6 +38,6 @@ export default createTool({
   description: 'Perform a research investigation for a more thorough answer.',
   parameters: z.object({ query: z.string() }),
   execute: ({ query }) => {
-    return new PromiseProcess('deep_research', () => deepResearch(query));
+    createPromiseProcess('deep_research', () => deepResearch(query));
   },
 });

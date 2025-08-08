@@ -14,7 +14,7 @@ describe('Runtime', () => {
       runtime = new Runtime();
       runtime.registerProcessConstructor(SetMetadataProcess);
       process = new SetMetadataProcess();
-      container = runtime.spawn(process);
+      container = runtime.spawn(SetMetadataProcess);
     });
 
     it('serializes the correct values', () => {

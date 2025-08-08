@@ -24,3 +24,11 @@ export interface ProcessSnapshot extends ProcessMetadata {
   status: ProcessStatus;
   state: any;
 }
+
+export function isProcessConstructor(value: any): value is ProcessConstructor {
+  return (
+    typeof value === 'function' &&
+    value.prototype &&
+    (value === Process || value.prototype instanceof Process)
+  );
+}

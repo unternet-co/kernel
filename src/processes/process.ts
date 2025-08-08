@@ -1,30 +1,23 @@
-import { Emitter } from '../emitter';
 import { ResourceIcon } from '../resources';
 import { JSONValue } from '../types';
-import { ToolCall, ToolResult } from '../tools';
+import { Tool, ToolCall, ToolResult } from '../tools';
 import { ProcessMetadata } from './shared';
-
-export type ProcessEvents = {
-  change: undefined;
-  'tool-result': ToolResult;
-};
 
 /**
  * A process is a long-running task that can be suspended or resumed,
  * and serialized.
  */
-export class Process<SnapshotType = any>
-  extends Emitter<ProcessEvents>
-  implements ProcessMetadata
-{
+export class Process<SnapshotType = any> implements ProcessMetadata {
   static type?: string;
   name?: string;
   icons?: ResourceIcon[];
+  tools: Tool[] = [];
   suspendable: boolean = true;
 
-  constructor(snapshot?: SnapshotType) {
-    super();
-  }
+  /**
+   * Runs whenever the process is created or resumed.
+   */
+  constructor(snapshot?: SnapshotType) {}
 
   // TODO
   notifyChange(): void {
@@ -36,14 +29,9 @@ export class Process<SnapshotType = any>
   }
 
   /**
-   * This is run whenever the process is started or resumed.
-   */
-  activate(): void | Promise<void> {}
-
-  /**
    * This is run whenever the process is suspended or exited.
    */
-  deactivate(): void | Promise<void> {}
+  deconstructor(): void {}
 
   /**
    * Describe the process to the model.
@@ -55,8 +43,16 @@ export class Process<SnapshotType = any>
   /**
    * Call a tool on this process.
    */
-  // TODO
-  async call(toolCall: ToolCall) {}
+  async call(toolCall: ToolCall) {
+    const tool = this.tools.find((t) => t.name === toolCall.name);
+
+    if (!tool) {
+      throw new Error(`No tool named '${toolCall.name}'.`);
+    }
+    if (!tool.execute) return;
+
+    return await tool.execute(toolCall.args);
+  }
 
   /**
    * Return a snapshot of serialiable data, for rehydration.

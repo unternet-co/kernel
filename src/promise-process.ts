@@ -1,29 +1,25 @@
 import { Process } from './processes/process';
+import { JSONValue } from './types';
 
-interface PromiseProcessState {
-  output?: any;
-}
+export function createPromiseProcess(
+  name: string,
+  promise: () => Promise<any>
+) {
+  return class PromiseProcess extends Process {
+    name = name;
+    promise = promise;
+    complete: boolean = false;
+    suspendable = false;
 
-export class PromiseProcess extends Process<PromiseProcessState> {
-  output: any = 'Working...';
-  suspendable = false;
+    async call() {
+      const value = await this.promise();
+      this.complete = true;
+      this.notifyChange();
+      return value;
+    }
 
-  constructor(name: string, promise: () => Promise<unknown>) {
-    super();
-    this.name = name;
-    this.await(promise);
-  }
-
-  async await(promise: () => Promise<unknown>) {
-    this.output = await promise();
-    this.emit('change');
-    this.emit('tool-result', { output: this.output });
-    this.exit();
-  }
-
-  serialize() {
-    return {
-      output: this.output,
-    };
-  }
+    describe() {
+      return this.complete ? 'Complete.' : 'Working...';
+    }
+  };
 }

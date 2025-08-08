@@ -8,6 +8,8 @@ import { Emitter } from './emitter';
 import { Process } from './processes/process';
 import { ProcessContainer } from './processes/process-container';
 import { DEFAULT_MESSAGE_LIMIT } from './constants';
+import { ulid } from 'ulid';
+import { isProcessConstructor } from './processes';
 
 export interface KernelOpts {
   model: LanguageModel;
@@ -26,9 +28,9 @@ type KernelStatus = 'idle' | 'busy';
 
 export class Kernel extends Emitter<KernelEvents> {
   model: LanguageModel;
-  tools: Tool[] = [];
   messageLimit: number = DEFAULT_MESSAGE_LIMIT;
   runtime = new Runtime();
+  tools: Tool[] = [];
   spawn = this.runtime.spawn.bind(this.runtime);
   restore = this.runtime.restore.bind(this.runtime);
   kill = this.runtime.kill.bind(this.runtime);
@@ -46,21 +48,42 @@ export class Kernel extends Emitter<KernelEvents> {
     if (opts.tools) this.tools = opts.tools;
     if (opts.messages) this.messages = opts.messages;
 
-    this.runtime.on('process.created', (e) => {
-      this.emit('process.created', e);
+    this.runtime.on('process-created', (e) => {
+      this.emit('process-created', e);
     });
-    this.runtime.on('process.changed', (e) => {
-      this.emit('process.changed', e);
+    this.runtime.on('process-changed', (e) => {
+      this.emit('process-changed', e);
     });
-    this.runtime.on('process.exited', (e) => {
-      this.emit('process.exited', e);
+    this.runtime.on('process-exited', (e) => {
+      this.emit('process-exited', e);
     });
 
-    this.runtime.on('process.tool-result', (e) => {
-      // TODO: Propert implementation of process results
+    this.runtime.on('tool-result', (e) => {
+      const callId = ulid();
+
+      // TODO: Make this actually reflect the tool call better
+      // Can we have multiple outputs to one tool call?
+      this.addMessage(
+        createMessage('tool-calls', {
+          calls: [
+            {
+              id: callId,
+              name: e.result.name || '',
+              args: {},
+            },
+          ],
+        })
+      );
+
       this.send(
-        createMessage('system', {
-          text: `Tool call completed.`,
+        createMessage('tool-results', {
+          results: [
+            {
+              callId,
+              name: e.result.name || '',
+              output: e.result.output,
+            },
+          ],
         })
       );
     });
@@ -126,18 +149,23 @@ export class Kernel extends Emitter<KernelEvents> {
 
       // Handle deltas
       if (response.type === 'delta') {
+        // Check if this is is the first chunk
         if (!this._messages.has(response.id)) {
-          const initialMsg: ReplyMessage = {
-            type: 'reply',
-            id: response.id,
-            timestamp: response.timestamp,
-            text: '',
-          };
-          this.addMessage(initialMsg);
+          // Only process reply deltas at this stage
+          if (response.messageType === 'reply') {
+            const initialMsg: ReplyMessage = {
+              type: 'reply',
+              id: response.id,
+              timestamp: response.timestamp,
+              text: '',
+            };
+            this.addMessage(initialMsg);
+          }
         }
 
         let msg = this._messages.get(response.id);
 
+        // We have already received the first chunk, now append
         if (msg && msg.type === 'reply') {
           const delta = response.delta as Partial<ReplyMessage>;
 
@@ -168,7 +196,6 @@ export class Kernel extends Emitter<KernelEvents> {
     }
   }
 
-  // TODO: Add this to runtime instead
   private async callTools(calls: ToolCall[]) {
     const results: ToolResult[] = [];
 
@@ -176,25 +203,20 @@ export class Kernel extends Emitter<KernelEvents> {
       const { id, name, args } = call;
       const tool = this.tools.find((t) => t.name === name);
 
-      if (!tool?.execute) {
-        return;
-        // throw new Error(`Unknown or invalid tool: ${name}`);
-      }
+      if (!tool?.execute) return;
 
       let output = await tool.execute(args);
 
-      let proc: ProcessContainer | null = null;
-      if (output instanceof Process) {
-        proc = this.runtime.spawn(output);
+      let container: ProcessContainer | null = null;
+      if (isProcessConstructor(output)) {
+        container = this.runtime.spawn(output);
+        container.call(call);
       }
 
-      // TODO: Handle this better, in the stream
-      // We shouldn't emit a result if it's a process
-      // and move the containing function to runtime
       results.push({
         callId: id,
         name: name,
-        output: proc ?? output,
+        output: container ?? output,
       });
     }
 
