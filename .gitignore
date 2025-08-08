@@ -3,3 +3,4 @@ dist/
 scratchpad.md
 **/.gitignore
 **/.env
+debug.log

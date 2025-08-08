@@ -1,6 +1,6 @@
 import { ToolSet } from 'ai';
-import { z, ZodSchema, ZodType, ZodTypeDef } from 'zod';
-import { Process, ProcessContainer } from './processes';
+import { z, ZodType, ZodTypeDef } from 'zod';
+import { Process } from './processes/process';
 import { JSONValue } from './types';
 
 export interface Tool<Schema = unknown> {
@@ -14,7 +14,7 @@ export interface Tool<Schema = unknown> {
       : Schema extends undefined
         ? Record<string, never>
         : JSONValue
-  ) => JSONValue | Promise<JSONValue> | Process;
+  ) => any;
 }
 
 export interface ToolCall {
@@ -25,6 +25,7 @@ export interface ToolCall {
 
 export interface ToolResult {
   output: any;
+  pid?: string;
   name?: string;
   callId?: string;
   error?: Error;
@@ -44,7 +45,7 @@ export function createTool(tool: {
   type?: string;
   description?: string;
   parameters: any;
-  execute?: (args: any) => JSONValue | Promise<JSONValue> | Process | void;
+  execute?: (args: any) => any;
 }): Tool<undefined>;
 export function createTool(tool: any): any {
   return tool;

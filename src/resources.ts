@@ -1,6 +1,7 @@
 import { Tool, ToolCall } from './tools';
+import { JSONValue } from './types';
 
-export interface ResourceIcon {
+export interface ResourceIcon extends Record<string, JSONValue> {
   src: string;
   purpose?: string;
   sizes?: string;

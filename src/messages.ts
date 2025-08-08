@@ -7,7 +7,7 @@ import {
   CoreUserMessage,
 } from 'ai';
 import { ToolCall, ToolResult } from './tools';
-import { ProcessContainer } from './processes';
+import { ProcessContainer } from './processes/process-container';
 
 export type Message =
   | SystemMessage
