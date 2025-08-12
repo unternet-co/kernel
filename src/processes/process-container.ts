@@ -1,5 +1,5 @@
 import { ulid } from 'ulid';
-import { Emitter } from '../emitter';
+import { Emitter } from '../utils/emitter';
 import { ToolCall, ToolResult } from '../tools';
 import { Process } from './process';
 import {

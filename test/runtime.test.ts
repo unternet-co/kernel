@@ -1,8 +1,8 @@
-import { describe, it, assert, beforeEach, expect } from 'vitest';
-import { Process } from '../../src';
+import { describe, it, beforeEach, expect } from 'vitest';
+import { Process } from '../src';
 import { SetMetadataProcess } from './fixtures';
-import { ProcessContainer } from '../../src/processes/process-container';
-import { Runtime } from '../../src/runtime';
+import { ProcessContainer } from '../src/processes/process-container';
+import { Runtime } from '../src/runtime';
 
 describe('Runtime', () => {
   describe('saving and restoring', () => {

@@ -2,20 +2,29 @@ import { createStream, MessageDelta, MessageStream } from './stream';
 import { Runtime, RuntimeEvents } from './runtime';
 import { LanguageModel } from './types';
 import { Tool } from './tools';
-import { createMessage, Message, ReplyMessage } from './messages';
+import {
+  createMessage,
+  InputMessage,
+  Message,
+  ReplyMessage,
+  ToolCallsMessage,
+} from './messages';
 import { ToolCall, ToolResult } from './tools';
-import { Emitter } from './emitter';
-import { Process } from './processes/process';
+import { Emitter } from './utils/emitter';
 import { ProcessContainer } from './processes/process-container';
 import { DEFAULT_MESSAGE_LIMIT } from './constants';
-import { ulid } from 'ulid';
-import { isProcessConstructor } from './processes';
 
 export interface KernelOpts {
   model: LanguageModel;
   messages?: Message[];
   tools?: Tool[];
   messageLimit?: number;
+}
+
+interface ToolCallRequest {
+  groupId: string;
+  call: ToolCall;
+  result?: ToolResult;
 }
 
 type KernelEvents = {
@@ -31,15 +40,18 @@ export class Kernel extends Emitter<KernelEvents> {
   messageLimit: number = DEFAULT_MESSAGE_LIMIT;
   runtime = new Runtime();
   tools: Tool[] = [];
+  private pendingCalls = new Map<ToolCall['id'], ToolCallRequest>();
+  private _messages = new Map<Message['id'], Message>();
+  private _streams = new Map<string, MessageStream>();
+  private _status: KernelStatus = 'idle';
+
+  // Reflecting runtime methods & properties
   spawn = this.runtime.spawn.bind(this.runtime);
   restore = this.runtime.restore.bind(this.runtime);
   kill = this.runtime.kill.bind(this.runtime);
   registerProcessConstructor = this.runtime.registerProcessConstructor.bind(
     this.runtime
   );
-  private _messages = new Map<Message['id'], Message>();
-  private _streams = new Map<string, MessageStream>();
-  private _status: KernelStatus = 'idle';
 
   constructor(opts: KernelOpts) {
     super();
@@ -57,35 +69,8 @@ export class Kernel extends Emitter<KernelEvents> {
     this.runtime.on('process-exited', (e) => {
       this.emit('process-exited', e);
     });
-
     this.runtime.on('tool-result', (e) => {
-      const callId = ulid();
-
-      // TODO: Make this actually reflect the tool call better
-      // Can we have multiple outputs to one tool call?
-      this.addMessage(
-        createMessage('tool-calls', {
-          calls: [
-            {
-              id: callId,
-              name: e.result.name || '',
-              args: {},
-            },
-          ],
-        })
-      );
-
-      this.send(
-        createMessage('tool-results', {
-          results: [
-            {
-              callId,
-              name: e.result.name || '',
-              output: e.result.output,
-            },
-          ],
-        })
-      );
+      this.handleToolResult(e.result);
     });
   }
 
@@ -128,6 +113,26 @@ export class Kernel extends Emitter<KernelEvents> {
       return;
     }
 
+    if (msg.type === 'tool-call') {
+      const call: ToolCall = {
+        id: msg.id,
+        name: msg.name,
+        args: msg.args,
+      };
+      this.handleToolCalls(msg.id, [call]);
+      return;
+    }
+
+    if (msg.type === 'tool-result') {
+      this.handleToolResult({
+        callId: msg.callId,
+        name: msg.name,
+        output: msg.output,
+        error: msg.error,
+      });
+      return;
+    }
+
     this.addMessage(msg);
     this.emit('message', msg);
 
@@ -147,11 +152,9 @@ export class Kernel extends Emitter<KernelEvents> {
     for await (const response of stream) {
       this.emit('message', response);
 
-      // Handle deltas
+      // Handle deltas (reply only at this stage)
       if (response.type === 'delta') {
-        // Check if this is is the first chunk
         if (!this._messages.has(response.id)) {
-          // Only process reply deltas at this stage
           if (response.messageType === 'reply') {
             const initialMsg: ReplyMessage = {
               type: 'reply',
@@ -181,7 +184,7 @@ export class Kernel extends Emitter<KernelEvents> {
       this.addMessage(response);
 
       if (response.type === 'tool-calls') {
-        this.callTools(response.calls);
+        this.handleToolCalls(response.id, response.calls);
       }
     }
 
@@ -189,37 +192,72 @@ export class Kernel extends Emitter<KernelEvents> {
     this.stopStream(stream.id);
   }
 
-  stopStream(id: string) {
+  private stopStream(id: string) {
     this._streams.delete(id);
     if (this._streams.size === 0) {
       this.setStatus('idle');
     }
   }
 
-  private async callTools(calls: ToolCall[]) {
-    const results: ToolResult[] = [];
-
+  private async handleToolCalls(
+    groupId: ToolCallsMessage['id'],
+    calls: ToolCall[]
+  ) {
     for (const call of calls) {
       const { id, name, args } = call;
       const tool = this.tools.find((t) => t.name === name);
 
-      if (!tool?.execute) return;
-
-      let output = await tool.execute(args);
-
-      let container: ProcessContainer | null = null;
-      if (isProcessConstructor(output)) {
-        container = this.runtime.spawn(output);
-        container.call(call);
+      if (!tool) {
+        throw new Error(`No tool found for name '${name}'`);
       }
 
-      results.push({
-        callId: id,
-        name: name,
-        output: container ?? output,
+      this.pendingCalls.set(call.id, {
+        groupId: groupId,
+        call,
       });
+
+      if (tool.execute) {
+        const output = await tool.execute(args);
+        this.handleToolResult({
+          callId: id,
+          name: name,
+          output: output,
+        });
+      } else if (tool.process) {
+        this.pendingCalls.set(call.id, {
+          groupId,
+          call,
+        });
+        const container = this.spawn(tool.process);
+        container.call(call);
+      } else {
+        throw new Error(
+          `Tool with name '${tool.name}' has no 'execute' or 'process' properties.`
+        );
+      }
+    }
+  }
+
+  private handleToolResult(result: ToolResult) {
+    const call = this.pendingCalls.get(result.callId);
+    if (!call) {
+      throw new Error('Received tool result without a tool call.');
     }
 
-    this.send(createMessage('tool-results', { results }));
+    call.result = result;
+
+    const group = Array.from(this.pendingCalls.values()).filter(
+      (c) => c.groupId === call.groupId
+    );
+
+    const isGroupCompleted = group.every((c) => c.result);
+
+    if (isGroupCompleted) {
+      const msg = createMessage('tool-results', {
+        results: group.map((c) => c.result!),
+      });
+
+      this.send(msg);
+    }
   }
 }

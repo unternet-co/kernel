@@ -1,5 +1,5 @@
-import { Process } from './processes/process';
-import { JSONValue } from './types';
+import { Process } from './process';
+import { JSONValue } from '../types';
 
 export function createPromiseProcess(
   name: string,

@@ -1,13 +1,14 @@
 import { ToolSet } from 'ai';
 import { z, ZodType, ZodTypeDef } from 'zod';
-import { Process } from './processes/process';
 import { JSONValue } from './types';
+import { ProcessConstructor } from './processes';
 
 export interface Tool<Schema = unknown> {
   name: string;
   type?: string;
   description?: string;
   parameters?: Schema;
+  process?: ProcessConstructor;
   execute?: (
     args: Schema extends ZodType<any, ZodTypeDef, any>
       ? z.infer<Schema>
@@ -20,31 +21,31 @@ export interface Tool<Schema = unknown> {
 export interface ToolCall {
   id: string;
   name: string;
-  args: JSONValue;
+  args?: JSONValue;
 }
 
 export interface ToolResult {
   output: any;
-  pid?: string;
-  name?: string;
-  callId?: string;
+  callId: string;
+  name: string;
   error?: Error;
 }
 
-// export function createTool<TSchema extends ZodType<any, ZodTypeDef, any>>(tool: {
-//   name: string;
-//   type?: string;
-//   description?: string;
-//   parameters: TSchema;
-//   execute?: (
-//     args: z.infer<TSchema>
-//   ) => JSONValue | Promise<JSONValue> | Process | void;
-// }): Tool<TSchema>;
+export function createTool<
+  TSchema extends ZodType<any, ZodTypeDef, any>,
+>(tool: {
+  name: string;
+  type?: string;
+  description?: string;
+  parameters: TSchema;
+  execute?: (args: z.infer<TSchema>) => JSONValue | Promise<JSONValue> | void;
+}): Tool<TSchema>;
 export function createTool(tool: {
   name: string;
   type?: string;
   description?: string;
-  parameters: any;
+  parameters?: any;
+  process?: ProcessConstructor;
   execute?: (args: any) => any;
 }): Tool<undefined>;
 export function createTool(tool: any): any {

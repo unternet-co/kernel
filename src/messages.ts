@@ -15,7 +15,9 @@ export type Message =
   | ReplyMessage
   | ReasoningMessage
   | LogMessage
+  | ToolCallMessage
   | ToolCallsMessage
+  | ToolResultMessage
   | ToolResultsMessage;
 
 export interface BaseMessage {
@@ -57,9 +59,17 @@ export interface LogMessage extends BaseMessage {
   text: string;
 }
 
+export interface ToolCallMessage extends BaseMessage, ToolCall {
+  type: 'tool-call';
+}
+
 export interface ToolCallsMessage extends BaseMessage {
   type: 'tool-calls';
   calls: ToolCall[];
+}
+
+export interface ToolResultMessage extends BaseMessage, ToolResult {
+  type: 'tool-result';
 }
 
 export interface ToolResultsMessage extends BaseMessage {

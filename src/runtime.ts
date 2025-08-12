@@ -1,4 +1,4 @@
-import { Emitter } from './emitter';
+import { Emitter } from './utils/emitter';
 import { Process } from './processes/process';
 import { ProcessContainer } from './processes/process-container';
 import { ProcessConstructor, ProcessSnapshot } from './processes/shared';
@@ -39,7 +39,7 @@ export class Runtime extends Emitter<RuntimeEvents> {
   }
 
   spawn(ctor: ProcessConstructor) {
-    const container = this.attachProcess(ctor);
+    const container = this.instantiate(ctor);
     this.emit('process-created', { process: container });
     container.resume();
     return container;
@@ -57,13 +57,13 @@ export class Runtime extends Emitter<RuntimeEvents> {
     }
 
     const ctor = this.ctors.get(snapshot.type)!;
-    const container = this.attachProcess(ctor, snapshot);
+    const container = this.instantiate(ctor, snapshot);
     this.emit('process-restored', { process: container });
 
     return container;
   }
 
-  private attachProcess(
+  private instantiate(
     ctor: ProcessConstructor,
     snapshot?: ProcessSnapshot
   ): ProcessContainer {
@@ -119,9 +119,5 @@ export class Runtime extends Emitter<RuntimeEvents> {
       throw new Error(`Tried to kill non-existent process: ${id}`);
     container.suspend();
     this._processes.delete(id);
-  }
-
-  killall() {
-    for (const id of this._processes.keys()) this.kill(id);
   }
 }

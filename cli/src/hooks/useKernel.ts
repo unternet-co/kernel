@@ -18,7 +18,7 @@ export function useKernel(opts: KernelOpts) {
       setMessages(kernel.current?.messages || []);
     });
 
-    kernel.current.on('process.changed', () => {
+    kernel.current.on('process-changed', () => {
       setProcesses(kernel.current?.processes || []);
     });
   }, []);
