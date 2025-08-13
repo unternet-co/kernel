@@ -37,7 +37,5 @@ export default createTool({
   name: 'deep_research',
   description: 'Perform a research investigation for a more thorough answer.',
   parameters: z.object({ query: z.string() }),
-  execute: ({ query }) => {
-    return createPromiseProcess('deep_research', () => deepResearch(query));
-  },
+  process: createPromiseProcess('deep_research', () => deepResearch(query)),
 });

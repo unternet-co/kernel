@@ -81,13 +81,14 @@ class MeaningOfLifeProcess extends Process {
 }
 ```
 
-If the kernel receives a `Process` object after executing the tool, it will spin up this process in its runtime, and call the tool on the process once it's initialized.
+Instead of providing an `execute` property, this tool will have a `process` that the kernel will instantiate. The tool will then be called on the process, instead of executing the function:
 
 ```typescript
 const meaningOfLifeTool = createTool({
   name: 'meaning_of_life',
-  description: 'Get the answer to the meaning of life, the universe, and everything',
-  execute: () => return MeaningOfLifeProcess,
+  description:
+    'Get the answer to the meaning of life, the universe, and everything',
+  process: MeaningOfLifeProcess,
 });
 
 const tools = [meaningOfLifeTool];

@@ -136,6 +136,8 @@ export class Kernel extends Emitter<KernelEvents> {
     this.addMessage(msg);
     this.emit('message', msg);
 
+    if (msg.type === 'log') return;
+
     const stream = createStream({
       model: this.model,
       messages: this.messages,

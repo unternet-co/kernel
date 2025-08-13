@@ -116,6 +116,22 @@ export class ProcessContainer
     this.emit('exit');
   }
 
+  mount(element: HTMLElement) {
+    if (!this._process)
+      throw new Error('Tried to mount, but process not running.');
+    if (!this._process.mount)
+      throw new Error('Cannot mount process, no mount function supplied.');
+    this._process.mount(element);
+  }
+
+  unmount() {
+    if (!this._process)
+      throw new Error('Tried to unmount, but process not running.');
+    if (!this._process.unmount)
+      throw new Error('Cannot unmound process, no unmount function supplied.');
+    this._process.unmount();
+  }
+
   serialize(): ProcessSnapshot {
     return {
       id: this.id,

@@ -1,7 +1,7 @@
 import { ResourceIcon } from '../resources';
 import { JSONValue } from '../types';
 import { Tool, ToolCall, ToolResult } from '../tools';
-import { ProcessMetadata } from './shared';
+import { ProcessConstructor, ProcessMetadata } from './shared';
 
 /**
  * A process is a long-running task that can be suspended or resumed,
@@ -9,6 +9,8 @@ import { ProcessMetadata } from './shared';
  */
 export class Process<SnapshotType = any> implements ProcessMetadata {
   static type?: string;
+  static tools: Tool[] = []; // Initial tools
+
   name?: string;
   icons?: ResourceIcon[];
   tools: Tool[] = [];
@@ -32,6 +34,16 @@ export class Process<SnapshotType = any> implements ProcessMetadata {
    * This is run whenever the process is suspended or exited.
    */
   deconstructor(): void {}
+
+  /**
+   * Called with an HTML element container when the process can render something.
+   */
+  mount?(element: HTMLElement): void;
+
+  /**
+   * Called when the HTML container is about to be destroyed.
+   */
+  unmount?(): void;
 
   /**
    * Describe the process to the model.
