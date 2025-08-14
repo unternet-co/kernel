@@ -9,25 +9,25 @@ import { ProcessConstructor, ProcessMetadata } from './shared';
  */
 export class Process<SnapshotType = any> implements ProcessMetadata {
   static type?: string;
-  static tools: Tool[] = []; // Initial tools
-
   name?: string;
   icons?: ResourceIcon[];
   tools: Tool[] = [];
   suspendable: boolean = true;
 
-  /**
-   * Runs whenever the process is created or resumed.
-   */
-  constructor(snapshot?: SnapshotType) {}
-
-  // TODO
   notifyChange(): void {
     // Overriden by ProcessContainer
   }
 
   exit(): void {
     // Overriden by ProcessContainer
+  }
+
+  /**
+   * Called with a snapshot to load the process. Replace this with logic to restore your snapshot data.
+   */
+  static fromSnapshot(snapshot: unknown): Process {
+    const ctor = this.constructor as ProcessConstructor;
+    return new ctor();
   }
 
   /**
@@ -49,7 +49,7 @@ export class Process<SnapshotType = any> implements ProcessMetadata {
    * Describe the process to the model.
    */
   describe(): JSONValue {
-    return this.serialize() || {};
+    return this.snapshot || {};
   }
 
   /**
@@ -68,8 +68,9 @@ export class Process<SnapshotType = any> implements ProcessMetadata {
 
   /**
    * Return a snapshot of serialiable data, for rehydration.
+   * Replace this with the data you wish to save for restoring.
    */
-  serialize(): SnapshotType | Record<string, never> {
+  get snapshot(): SnapshotType | Record<string, never> {
     return {};
   }
 }

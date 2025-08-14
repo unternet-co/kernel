@@ -46,10 +46,10 @@ export class Kernel extends Emitter<KernelEvents> {
   private _status: KernelStatus = 'idle';
 
   // Reflecting runtime methods & properties
-  spawn = this.runtime.spawn.bind(this.runtime);
-  restore = this.runtime.restore.bind(this.runtime);
-  kill = this.runtime.kill.bind(this.runtime);
-  registerProcessConstructor = this.runtime.registerProcessConstructor.bind(
+  spawn = this.runtime?.spawn.bind(this.runtime);
+  restore = this.runtime?.restore.bind(this.runtime);
+  kill = this.runtime?.kill.bind(this.runtime);
+  registerProcessConstructor = this.runtime?.registerProcessType.bind(
     this.runtime
   );
 
@@ -230,7 +230,7 @@ export class Kernel extends Emitter<KernelEvents> {
           groupId,
           call,
         });
-        const container = this.spawn(tool.process);
+        const container = this.spawn(tool.process());
         container.call(call);
       } else {
         throw new Error(

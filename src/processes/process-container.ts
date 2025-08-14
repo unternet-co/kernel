@@ -21,13 +21,16 @@ export class ProcessContainer
   extends Emitter<ProcessContainerEvents>
   implements ProcessMetadata
 {
-  readonly type?: string;
+  private _type?: string;
   private _id: string;
   private _status: ProcessStatus = 'suspended';
-  private _process?: Process;
-  private _processCtor?: ProcessConstructor;
-  private _snapshot?: ProcessSnapshot;
+  private process?: Process;
+  private ctor?: ProcessConstructor;
+  private state?: any;
 
+  get type() {
+    return this._type;
+  }
   get id() {
     return this._id;
   }
@@ -35,48 +38,44 @@ export class ProcessContainer
     return this._status;
   }
   get name() {
-    return this._process?.name || this._snapshot?.state.name;
+    return this.process?.name || this.state?.name;
   }
   get icons() {
-    return this._process?.icons || this._snapshot?.state.icons;
+    return this.process?.icons || this.state?.icons;
   }
   get snapshot() {
-    return this._process?.serialize() || this._snapshot;
+    return {
+      id: this.id,
+      type: this.type,
+      status: this.status,
+      state: this.process?.snapshot || this.state || {},
+    };
+  }
+
+  static fromProcess(process: Process) {
+    const ctor = process.constructor as ProcessConstructor;
+    const container = new ProcessContainer(ctor);
+    container.process = process;
+    return container;
   }
 
   constructor(ctor: ProcessConstructor, snapshot?: ProcessSnapshot) {
     super();
+    this.ctor = ctor;
     this._id = snapshot?.id || ulid();
-    this._processCtor = ctor;
-    this.type = this._processCtor.type;
-    this._snapshot = snapshot;
-
-    // Properties/functions on Process get automatically reflected to
-    // ProcessContainer
-    return new Proxy(this, {
-      get(target, prop, receiver) {
-        if (prop in target) return Reflect.get(target, prop, receiver);
-
-        if (target._process && prop in target._process) {
-          const value = (target._process as any)[prop];
-          if (typeof value === 'function') return value.bind(target._process);
-          return value;
-        }
-
-        return undefined;
-      },
-    });
+    this._type = ctor.type;
+    this.state = snapshot?.state || {};
   }
 
   describe() {
-    return this._process?.describe();
+    return this.process?.describe();
   }
 
   async call(toolCall: ToolCall) {
     const result = {
       callId: toolCall.id,
       name: toolCall.name,
-      output: await this._process?.call(toolCall),
+      output: await this.process?.call(toolCall),
     };
     this.emit('tool-result', { result });
   }
@@ -85,9 +84,14 @@ export class ProcessContainer
     // Overridden by Runtime
   }
   handleSuspend() {
-    this._snapshot = this._process?.serialize();
-    this._process?.deconstructor();
-    delete this._process;
+    if (!this.process)
+      throw new Error(
+        'Tried to suspend a container without a running process.'
+      );
+
+    this.state = this.process.snapshot;
+    this.process.deconstructor();
+    delete this.process;
     this._status = 'suspended';
     this.emit('suspend');
   }
@@ -96,14 +100,17 @@ export class ProcessContainer
     // Overridden by Runtime
   }
   handleResume() {
-    if (!this._processCtor) {
-      throw new Error('Cannot resume process without a constructor.');
+    // Resume will be called either after a process is added to the container,
+    // or when we want to resume from the saved snapshot.
+    if (!this.process) {
+      if (!this.ctor) {
+        throw new Error('Cannot create a new process without a constructor.');
+      }
+      this.process = this.ctor.fromSnapshot(this.state);
     }
 
-    this._process = new this._processCtor(this._snapshot);
-    this._process.notifyChange = () => this.emit('change');
-    this._process.exit = () => this.exit();
-    this._snapshot = this._process.serialize();
+    this.process.notifyChange = () => this.emit('change');
+    this.process.exit = () => this.exit();
     this._status = 'running';
     this.emit('resume');
   }
@@ -112,32 +119,23 @@ export class ProcessContainer
     // Overriden by Runtime
   }
   handleExit() {
-    this._process?.deconstructor();
+    this.process?.deconstructor();
     this.emit('exit');
   }
 
   mount(element: HTMLElement) {
-    if (!this._process)
+    if (!this.process)
       throw new Error('Tried to mount, but process not running.');
-    if (!this._process.mount)
+    if (!this.process.mount)
       throw new Error('Cannot mount process, no mount function supplied.');
-    this._process.mount(element);
+    this.process.mount(element);
   }
 
   unmount() {
-    if (!this._process)
+    if (!this.process)
       throw new Error('Tried to unmount, but process not running.');
-    if (!this._process.unmount)
+    if (!this.process.unmount)
       throw new Error('Cannot unmound process, no unmount function supplied.');
-    this._process.unmount();
-  }
-
-  serialize(): ProcessSnapshot {
-    return {
-      id: this.id,
-      type: this.type,
-      status: this.status,
-      state: this._process?.serialize() || {},
-    };
+    this.process.unmount();
   }
 }

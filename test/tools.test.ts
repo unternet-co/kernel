@@ -10,7 +10,7 @@ const tools = [
   }),
   createTool({
     name: 'simple_process',
-    process: SimpleProcess,
+    process: () => new SimpleProcess(),
   }),
 ];
 

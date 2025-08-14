@@ -1,14 +1,14 @@
 import { ToolSet } from 'ai';
 import { z, ZodType, ZodTypeDef } from 'zod';
 import { JSONValue } from './types';
-import { ProcessConstructor } from './processes';
+import { Process } from './processes';
 
 export interface Tool<Schema = unknown> {
   name: string;
   type?: string;
   description?: string;
   parameters?: Schema;
-  process?: ProcessConstructor;
+  process?: () => Process;
   execute?: (
     args: Schema extends ZodType<any, ZodTypeDef, any>
       ? z.infer<Schema>
@@ -31,21 +31,12 @@ export interface ToolResult {
   error?: Error;
 }
 
-export function createTool<
-  TSchema extends ZodType<any, ZodTypeDef, any>,
->(tool: {
-  name: string;
-  type?: string;
-  description?: string;
-  parameters: TSchema;
-  execute?: (args: z.infer<TSchema>) => JSONValue | Promise<JSONValue> | void;
-}): Tool<TSchema>;
 export function createTool(tool: {
   name: string;
   type?: string;
   description?: string;
   parameters?: any;
-  process?: ProcessConstructor;
+  process?: () => Process;
   execute?: (args: any) => any;
 }): Tool<undefined>;
 export function createTool(tool: any): any {

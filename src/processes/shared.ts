@@ -7,8 +7,8 @@ export type ProcessStatus = 'running' | 'suspended';
 
 export interface ProcessConstructor {
   new (...args: any[]): Process;
-  type?: string; // Include static properties you need
-  tools?: Tool[];
+  type?: string;
+  fromSnapshot(snapshot: unknown): Process;
 }
 
 // These are properties that all processes are expected to implement

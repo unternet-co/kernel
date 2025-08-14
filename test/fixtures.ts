@@ -2,25 +2,29 @@ import { MockLanguageModelV1 } from 'ai/test';
 import { Process } from '../src';
 import { simulateReadableStream } from 'ai';
 
+interface SetMetadataSnapshot {
+  name?: string;
+  icons?: { src: string }[];
+}
+
 export class SetMetadataProcess extends Process {
   static type = 'set-metadata';
 
-  constructor(snapshot?: any) {
-    super();
-    if (!snapshot) {
-      this.initialize();
-      return;
-    }
-    this.name = snapshot.name;
-    this.icons = snapshot.icons;
+  static new() {
+    const process = new SetMetadataProcess();
+    process.name = 'Initialized!';
+    process.icons = [{ src: 'https://example.com/img.png' }];
+    return process;
   }
 
-  initialize() {
-    this.name = 'Initialized!';
-    this.icons = [{ src: 'https://example.com/img.png' }];
+  static fromSnapshot(snapshot: SetMetadataSnapshot): Process {
+    const process = new SetMetadataProcess();
+    process.name = snapshot.name;
+    process.icons = snapshot.icons;
+    return process;
   }
 
-  serialize() {
+  get snapshot(): SetMetadataSnapshot {
     return {
       name: this.name,
       icons: this.icons,

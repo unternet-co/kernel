@@ -22,13 +22,11 @@ export class Runtime extends Emitter<RuntimeEvents> {
     return Array.from(this._processes.values());
   }
 
-  registerProcessConstructor(ctor: ProcessConstructor) {
+  registerProcessType(ctor: ProcessConstructor) {
     const type = ctor.type;
 
     if (!type) {
-      throw new Error(
-        `Tried to register process constructor with no static type property.`
-      );
+      throw new Error('Process must have static type property.');
     }
 
     if (this.ctors.has(type)) {
@@ -38,8 +36,9 @@ export class Runtime extends Emitter<RuntimeEvents> {
     this.ctors.set(type, ctor);
   }
 
-  spawn(ctor: ProcessConstructor) {
-    const container = this.instantiate(ctor);
+  spawn(process: Process) {
+    const container = ProcessContainer.fromProcess(process);
+    this.attach(container);
     this.emit('process-created', { process: container });
     container.resume();
     return container;
@@ -57,18 +56,14 @@ export class Runtime extends Emitter<RuntimeEvents> {
     }
 
     const ctor = this.ctors.get(snapshot.type)!;
-    const container = this.instantiate(ctor, snapshot);
+    const container = new ProcessContainer(ctor, snapshot);
+    this.attach(container);
     this.emit('process-restored', { process: container });
-
+    if (snapshot.status === 'running') container.resume();
     return container;
   }
 
-  private instantiate(
-    ctor: ProcessConstructor,
-    snapshot?: ProcessSnapshot
-  ): ProcessContainer {
-    const container = new ProcessContainer(ctor, snapshot);
-
+  private attach(container: ProcessContainer) {
     container.on('change', () => {
       this.emit('process-changed', { process: container });
     });
@@ -106,7 +101,6 @@ export class Runtime extends Emitter<RuntimeEvents> {
     };
 
     this._processes.set(container.id, container);
-    return container;
   }
 
   find(id: ProcessContainer['id']) {
