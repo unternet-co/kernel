@@ -9,7 +9,7 @@ export class Emitter<T extends Record<string, any>> {
   /**
    * Subscribe to an event & return an unsubscribe function
    */
-  readonly on = <K extends keyof T>(
+  readonly on = <K extends keyof T | '*'>(
     type: K,
     handler: (event: T[K]) => void
   ): (() => void) => {
@@ -20,7 +20,7 @@ export class Emitter<T extends Record<string, any>> {
   /**
    * Subscribe to an event once and return an unsubscribe function
    */
-  readonly once = <K extends keyof T>(
+  readonly once = <K extends keyof T | '*'>(
     type: K,
     handler: (event: T[K]) => void
   ): (() => void) => {

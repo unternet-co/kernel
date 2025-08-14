@@ -1,4 +1,5 @@
 import { ResourceIcon } from '../resources';
+import { Tool } from '../tools';
 import { JSONValue } from '../types';
 import { Process } from './process';
 
@@ -6,7 +7,8 @@ export type ProcessStatus = 'running' | 'suspended';
 
 export interface ProcessConstructor {
   new (...args: any[]): Process;
-  type: string; // Include static properties you need
+  type?: string;
+  fromSnapshot(snapshot: unknown): Process;
 }
 
 // These are properties that all processes are expected to implement

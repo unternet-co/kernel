@@ -1,7 +1,7 @@
 import { ResourceIcon } from '../resources';
 import { JSONValue } from '../types';
 import { Tool, ToolCall, ToolResult } from '../tools';
-import { ProcessMetadata } from './shared';
+import { ProcessConstructor, ProcessMetadata } from './shared';
 
 /**
  * A process is a long-running task that can be suspended or resumed,
@@ -14,12 +14,6 @@ export class Process<SnapshotType = any> implements ProcessMetadata {
   tools: Tool[] = [];
   suspendable: boolean = true;
 
-  /**
-   * Runs whenever the process is created or resumed.
-   */
-  constructor(snapshot?: SnapshotType) {}
-
-  // TODO
   notifyChange(): void {
     // Overriden by ProcessContainer
   }
@@ -29,15 +23,33 @@ export class Process<SnapshotType = any> implements ProcessMetadata {
   }
 
   /**
+   * Called with a snapshot to load the process. Replace this with logic to restore your snapshot data.
+   */
+  static fromSnapshot(snapshot: unknown): Process {
+    const ctor = this.constructor as ProcessConstructor;
+    return new ctor();
+  }
+
+  /**
    * This is run whenever the process is suspended or exited.
    */
   deconstructor(): void {}
 
   /**
+   * Called with an HTML element container when the process can render something.
+   */
+  mount?(element: HTMLElement): void;
+
+  /**
+   * Called when the HTML container is about to be destroyed.
+   */
+  unmount?(): void;
+
+  /**
    * Describe the process to the model.
    */
   describe(): JSONValue {
-    return this.serialize() || {};
+    return this.snapshot || {};
   }
 
   /**
@@ -56,8 +68,9 @@ export class Process<SnapshotType = any> implements ProcessMetadata {
 
   /**
    * Return a snapshot of serialiable data, for rehydration.
+   * Replace this with the data you wish to save for restoring.
    */
-  serialize(): SnapshotType | Record<string, never> {
+  get snapshot(): SnapshotType | Record<string, never> {
     return {};
   }
 }

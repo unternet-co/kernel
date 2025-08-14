@@ -1,13 +1,5 @@
 import { ulid } from 'ulid';
-import { JSONValue } from './types';
-import {
-  CoreAssistantMessage,
-  CoreSystemMessage,
-  CoreToolMessage,
-  CoreUserMessage,
-} from 'ai';
 import { ToolCall, ToolResult } from './tools';
-import { ProcessContainer } from './processes/process-container';
 
 export type Message =
   | SystemMessage
@@ -15,7 +7,9 @@ export type Message =
   | ReplyMessage
   | ReasoningMessage
   | LogMessage
+  | ToolCallMessage
   | ToolCallsMessage
+  | ToolResultMessage
   | ToolResultsMessage;
 
 export interface BaseMessage {
@@ -57,9 +51,17 @@ export interface LogMessage extends BaseMessage {
   text: string;
 }
 
+export interface ToolCallMessage extends BaseMessage, ToolCall {
+  type: 'tool-call';
+}
+
 export interface ToolCallsMessage extends BaseMessage {
   type: 'tool-calls';
   calls: ToolCall[];
+}
+
+export interface ToolResultMessage extends BaseMessage, ToolResult {
+  type: 'tool-result';
 }
 
 export interface ToolResultsMessage extends BaseMessage {
@@ -81,70 +83,4 @@ export function createMessage<T extends keyof MessageTypeMap>(
     type,
     ...opts,
   } as MessageTypeMap[T];
-}
-
-export type RenderedMessage =
-  | CoreSystemMessage
-  | CoreUserMessage
-  | CoreAssistantMessage
-  | CoreToolMessage;
-
-export function renderMessages(msgs: Message[]): RenderedMessage[] {
-  const renderedMsgs: RenderedMessage[] = [];
-
-  for (const msg of msgs) {
-    if (msg.type === 'input' && msg.text?.trim()) {
-      renderedMsgs.push({
-        role: 'user',
-        content: msg.text,
-      });
-    }
-
-    if (msg.type === 'system') {
-      renderedMsgs.push({
-        role: 'system',
-        content: msg.text,
-      });
-    }
-
-    if (msg.type === 'reply' && msg.text?.trim()) {
-      renderedMsgs.push({
-        role: 'assistant',
-        content: msg.text,
-      });
-    }
-
-    if (msg.type === 'tool-calls') {
-      renderedMsgs.push({
-        role: 'assistant',
-        content: msg.calls.map((call) => ({
-          type: 'tool-call',
-          toolCallId: call.id,
-          toolName: call.name, // We need to store this in tool_result messages
-          args: call.args,
-        })),
-      });
-    }
-
-    if (msg.type === 'tool-results') {
-      renderedMsgs.push({
-        role: 'tool',
-        content: msg.results.map((result) => {
-          const output =
-            result.output instanceof ProcessContainer
-              ? result.output.describe()
-              : result.output;
-
-          return {
-            type: 'tool-result',
-            toolCallId: result.callId ?? '',
-            toolName: result.name ?? '',
-            result: output,
-          };
-        }),
-      });
-    }
-  }
-
-  return renderedMsgs;
 }

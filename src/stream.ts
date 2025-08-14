@@ -2,19 +2,21 @@ import { ulid } from 'ulid';
 import {
   createMessage,
   Message,
-  ToolCallsMessage,
   ReplyMessage,
-  SystemMessage,
-  InputMessage,
-  ReasoningMessage,
-  LogMessage,
-  ToolResultsMessage,
-  renderMessages,
   BaseMessage,
+  ToolCallMessage,
+  ToolCallsMessage,
 } from './messages.js';
+import {
+  CoreAssistantMessage,
+  CoreSystemMessage,
+  CoreToolMessage,
+  CoreUserMessage,
+} from 'ai';
 import { Tool, renderTools } from './tools.js';
 import { LanguageModel } from './types.js';
 import { streamText } from 'ai';
+import { ProcessContainer } from './processes/process-container.js';
 
 interface BaseMessageDelta extends BaseMessage {
   type: 'delta';
@@ -118,4 +120,107 @@ export class MessageStream {
       }
     }
   }
+}
+
+export type RenderedMessage =
+  | CoreSystemMessage
+  | CoreUserMessage
+  | CoreAssistantMessage
+  | CoreToolMessage;
+
+function renderMessages(
+  msgs: Message[],
+  asyncToolCalls?: string[]
+): RenderedMessage[] {
+  const renderedMsgs: RenderedMessage[] = [];
+
+  msgs.forEach((msg, index) => {
+    if (msg.type === 'input' && msg.text?.trim()) {
+      renderedMsgs.push({
+        role: 'user',
+        content: msg.text,
+      });
+    }
+
+    if (msg.type === 'system') {
+      renderedMsgs.push({
+        role: 'system',
+        content: msg.text,
+      });
+    }
+
+    if (msg.type === 'reply' && msg.text?.trim()) {
+      renderedMsgs.push({
+        role: 'assistant',
+        content: msg.text,
+      });
+    }
+
+    if (msg.type === 'tool-calls') {
+      renderedMsgs.push({
+        role: 'assistant',
+        content: msg.calls.map((call) => ({
+          type: 'tool-call',
+          toolCallId: call.id,
+          toolName: call.name,
+          args: call.args,
+        })),
+      });
+
+      // If the next message is not a valid tool response, add pending tool
+      // results message.
+      const nextMsg = msgs.at(index + 1);
+      if (nextMsg && !isValidToolResponse(msg, nextMsg)) {
+        renderedMsgs.push({
+          role: 'tool',
+          content: msg.calls.map((call) => ({
+            type: 'tool-result',
+            toolCallId: call.id,
+            toolName: call.name,
+            result: { status: 'pending' },
+          })),
+        });
+      }
+    }
+
+    if (msg.type === 'tool-results') {
+      // If the prev message is not a valid tool call, add add it back in
+      const prevMsg = msgs.at(index - 1);
+      if (!prevMsg || !isValidToolResponse(prevMsg, msg)) {
+        renderedMsgs.push({
+          role: 'assistant',
+          content: msg.results.map((result) => ({
+            type: 'tool-call',
+            toolCallId: result.callId,
+            toolName: result.name,
+            args: {},
+          })),
+        });
+      }
+
+      renderedMsgs.push({
+        role: 'tool',
+        content: msg.results.map((result) => {
+          return {
+            type: 'tool-result',
+            toolCallId: result.callId ?? '',
+            toolName: result.name ?? '',
+            result: result.output,
+          };
+        }),
+      });
+    }
+  });
+
+  return renderedMsgs;
+}
+
+function isValidToolResponse(msg: Message, nextMsg: Message) {
+  if (msg.type !== 'tool-calls') return false;
+  if (nextMsg.type !== 'tool-results') return false;
+
+  const callIds = msg.calls.map((call) => call.id);
+  const resultCallIds = nextMsg.results.map((result) => result.callId);
+
+  return callIds.every((id) => resultCallIds.includes(id));
 }
