@@ -4,7 +4,6 @@ import { LanguageModel } from './types';
 import { Tool } from './tools';
 import {
   createMessage,
-  InputMessage,
   Message,
   ReplyMessage,
   ToolCallsMessage,
@@ -60,6 +59,9 @@ export class Kernel extends Emitter<KernelEvents> {
     if (opts.tools) this.tools = opts.tools;
     if (opts.messages) this.messages = opts.messages;
 
+    this.runtime.on('processes-updated', () => {
+      this.emit('processes-updated');
+    });
     this.runtime.on('process-created', (e) => {
       this.emit('process-created', e);
     });

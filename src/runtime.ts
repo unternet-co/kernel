@@ -5,6 +5,7 @@ import { ProcessConstructor, ProcessSnapshot } from './processes/shared';
 import { ToolResult } from './tools';
 
 export type RuntimeEvents = {
+  'processes-updated': undefined;
   'process-created': { process: ProcessContainer };
   'process-restored': { process: ProcessContainer };
   'process-resumed': { process: ProcessContainer };
@@ -17,6 +18,16 @@ export type RuntimeEvents = {
 export class Runtime extends Emitter<RuntimeEvents> {
   private _processes = new Map<ProcessContainer['id'], ProcessContainer>();
   private ctors = new Map<string, ProcessConstructor>();
+
+  constructor() {
+    super();
+    this.on('process-created', () => this.emit('processes-updated'));
+    this.on('process-restored', () => this.emit('processes-updated'));
+    this.on('process-resumed', () => this.emit('processes-updated'));
+    this.on('process-changed', () => this.emit('processes-updated'));
+    this.on('process-suspended', () => this.emit('processes-updated'));
+    this.on('process-exited', () => this.emit('processes-updated'));
+  }
 
   get processes(): ProcessContainer[] {
     return Array.from(this._processes.values());
@@ -80,10 +91,6 @@ export class Runtime extends Emitter<RuntimeEvents> {
       this.emit('tool-result', e);
     });
 
-    container.on('exit', () => {
-      this.emit('process-exited', { pid: container.id });
-    });
-
     container.suspend = () => {
       // TODO: Logic to decide whether/when to suspend
       container.handleSuspend();
@@ -95,9 +102,9 @@ export class Runtime extends Emitter<RuntimeEvents> {
     };
 
     container.exit = () => {
-      // TODO: Logic to decide whether/when to exit
       container.handleExit();
       this._processes.delete(container.id);
+      this.emit('process-exited', { pid: container.id });
     };
 
     this._processes.set(container.id, container);

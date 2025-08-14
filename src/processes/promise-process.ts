@@ -16,6 +16,7 @@ export class PromiseProcess extends Process {
     const value = await this.promise(toolCall.args);
     this.complete = true;
     this.notifyChange();
+    this.exit();
     return value;
   }
 
