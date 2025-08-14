@@ -9,13 +9,7 @@ export interface Tool<Schema = unknown> {
   description?: string;
   parameters?: Schema;
   process?: () => Process;
-  execute?: (
-    args: Schema extends ZodType<any, ZodTypeDef, any>
-      ? z.infer<Schema>
-      : Schema extends undefined
-        ? Record<string, never>
-        : JSONValue
-  ) => any;
+  execute?: (args: any) => any;
 }
 
 export interface ToolCall {
@@ -31,15 +25,7 @@ export interface ToolResult {
   error?: Error;
 }
 
-export function createTool(tool: {
-  name: string;
-  type?: string;
-  description?: string;
-  parameters?: any;
-  process?: () => Process;
-  execute?: (args: any) => any;
-}): Tool<undefined>;
-export function createTool(tool: any): any {
+export function createTool(tool: Tool): Tool<unknown> {
   return tool;
 }
 

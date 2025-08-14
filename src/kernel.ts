@@ -152,8 +152,6 @@ export class Kernel extends Emitter<KernelEvents> {
     this.setStatus('busy');
 
     for await (const response of stream) {
-      this.emit('message', response);
-
       // Handle deltas (reply only at this stage)
       if (response.type === 'delta') {
         if (!this._messages.has(response.id)) {
@@ -165,6 +163,7 @@ export class Kernel extends Emitter<KernelEvents> {
               text: '',
             };
             this.addMessage(initialMsg);
+            this.emit('message', response);
           }
         }
 
@@ -184,6 +183,7 @@ export class Kernel extends Emitter<KernelEvents> {
 
       // No delta, just add the message
       this.addMessage(response);
+      this.emit('message', response);
 
       if (response.type === 'tool-calls') {
         this.handleToolCalls(response.id, response.calls);

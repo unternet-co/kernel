@@ -4,7 +4,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "vite-node ./src/index.tsx"
+    "dev": "vite-node ./src/index.tsx",
+    "debug": "vite-node ./src/debug.ts"
   },
   "author": "",
   "license": "ISC",

@@ -88,7 +88,7 @@ const meaningOfLifeTool = createTool({
   name: 'meaning_of_life',
   description:
     'Get the answer to the meaning of life, the universe, and everything',
-  process: MeaningOfLifeProcess,
+  process: () => new MeaningOfLifeProcess(),
 });
 
 const tools = [meaningOfLifeTool];

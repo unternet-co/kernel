@@ -1,25 +1,25 @@
+import { ToolCall } from '../tools';
 import { Process } from './process';
-import { JSONValue } from '../types';
 
-export function createPromiseProcess(
-  name: string,
-  promise: () => Promise<any>
-) {
-  return class PromiseProcess extends Process {
-    name = name;
-    promise = promise;
-    complete: boolean = false;
-    suspendable = false;
+export class PromiseProcess extends Process {
+  name: string;
+  promise: (props: any) => Promise<any>;
+  complete: boolean = false;
 
-    async call() {
-      const value = await this.promise();
-      this.complete = true;
-      this.notifyChange();
-      return value;
-    }
+  constructor(name: string, promise: (props: any) => Promise<any>) {
+    super();
+    this.name = name;
+    this.promise = promise;
+  }
 
-    describe() {
-      return this.complete ? 'Complete.' : 'Working...';
-    }
-  };
+  async call(toolCall: ToolCall) {
+    const value = await this.promise(toolCall.args);
+    this.complete = true;
+    this.notifyChange();
+    return value;
+  }
+
+  describe() {
+    return this.complete ? 'Complete.' : 'Working...';
+  }
 }

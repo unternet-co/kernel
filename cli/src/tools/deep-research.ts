@@ -1,4 +1,4 @@
-import { createPromiseProcess, createTool } from '@unternet/kernel';
+import { createTool, PromiseProcess } from '@unternet/kernel';
 import { getJson } from 'serpapi';
 import { z } from 'zod';
 
@@ -11,6 +11,7 @@ export interface WebPage {
 }
 
 async function deepResearch(query: string): Promise<WebPage[]> {
+  console.log(query);
   const serpResults = await getJson({
     q: query,
     engine: 'google',
@@ -37,5 +38,6 @@ export default createTool({
   name: 'deep_research',
   description: 'Perform a research investigation for a more thorough answer.',
   parameters: z.object({ query: z.string() }),
-  process: createPromiseProcess('deep_research', () => deepResearch(query)),
+  process: () =>
+    new PromiseProcess('deep_research', ({ query }) => deepResearch(query)),
 });
