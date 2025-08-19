@@ -17,6 +17,8 @@ import { Tool, renderTools } from './tools.js';
 import { LanguageModel } from './types.js';
 import { streamText } from 'ai';
 import { ProcessContainer } from './processes/process-container.js';
+import { Process } from './processes/process.js';
+import { ProcessSnapshot } from './processes/shared.js';
 
 interface BaseMessageDelta extends BaseMessage {
   type: 'delta';
@@ -34,6 +36,7 @@ export interface StreamOptions {
   model: LanguageModel;
   messages: Message[];
   tools?: Tool[];
+  instructions?: string;
 }
 
 export function createStream(opts: StreamOptions): MessageStream {
@@ -41,6 +44,7 @@ export function createStream(opts: StreamOptions): MessageStream {
     model: opts.model,
     messages: renderMessages(opts.messages),
     tools: opts.tools ? renderTools(opts.tools) : undefined,
+    system: opts.instructions,
   });
 
   return new MessageStream(stream);
@@ -128,10 +132,7 @@ export type RenderedMessage =
   | CoreAssistantMessage
   | CoreToolMessage;
 
-function renderMessages(
-  msgs: Message[],
-  asyncToolCalls?: string[]
-): RenderedMessage[] {
+function renderMessages(msgs: Message[]): RenderedMessage[] {
   const renderedMsgs: RenderedMessage[] = [];
 
   msgs.forEach((msg, index) => {
@@ -201,11 +202,16 @@ function renderMessages(
       renderedMsgs.push({
         role: 'tool',
         content: msg.results.map((result) => {
+          let snapshot: ProcessSnapshot | null = null;
+          if (result.output instanceof ProcessContainer) {
+            snapshot = result.output.snapshot;
+          }
+
           return {
             type: 'tool-result',
             toolCallId: result.callId ?? '',
             toolName: result.name ?? '',
-            result: result.output,
+            result: snapshot ?? result.output,
           };
         }),
       });

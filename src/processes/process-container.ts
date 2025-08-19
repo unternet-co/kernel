@@ -40,6 +40,9 @@ export class ProcessContainer
   get name() {
     return this.process?.name || this.state?.name;
   }
+  get title() {
+    return this.process?.title || this.state?.title;
+  }
   get icons() {
     return this.process?.icons || this.state?.icons;
   }
@@ -135,7 +138,7 @@ export class ProcessContainer
     if (!this.process)
       throw new Error('Tried to unmount, but process not running.');
     if (!this.process.unmount)
-      throw new Error('Cannot unmound process, no unmount function supplied.');
+      throw new Error('Cannot unmount process, no unmount function supplied.');
     this.process.unmount();
   }
 }

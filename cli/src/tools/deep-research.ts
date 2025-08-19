@@ -38,6 +38,6 @@ export default createTool({
   name: 'deep_research',
   description: 'Perform a research investigation for a more thorough answer.',
   parameters: z.object({ query: z.string() }),
-  process: () =>
+  target: () =>
     new PromiseProcess('deep_research', ({ query }) => deepResearch(query)),
 });

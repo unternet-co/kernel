@@ -10,5 +10,5 @@ export default createTool({
   name: 'async_test_tool',
   description: 'Test async tool-calling functionality.',
   parameters: z.object({ name: z.string() }),
-  process: () => new PromiseProcess('async_test_tool', promiseFn),
+  target: () => new PromiseProcess('async_test_tool', promiseFn),
 });

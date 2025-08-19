@@ -12,11 +12,13 @@ import { ToolCall, ToolResult } from './tools';
 import { Emitter } from './utils/emitter';
 import { ProcessContainer } from './processes/process-container';
 import { DEFAULT_MESSAGE_LIMIT } from './constants';
+import { Process } from './processes';
 
 export interface KernelOpts {
   model: LanguageModel;
   messages?: Message[];
   tools?: Tool[];
+  instructions?: string;
   messageLimit?: number;
 }
 
@@ -39,6 +41,7 @@ export class Kernel extends Emitter<KernelEvents> {
   messageLimit: number = DEFAULT_MESSAGE_LIMIT;
   runtime = new Runtime();
   tools: Tool[] = [];
+  instructions: string = '';
   private pendingCalls = new Map<ToolCall['id'], ToolCallRequest>();
   private _messages = new Map<Message['id'], Message>();
   private _streams = new Map<string, MessageStream>();
@@ -58,6 +61,7 @@ export class Kernel extends Emitter<KernelEvents> {
     if (opts.messageLimit) this.messageLimit = opts.messageLimit;
     if (opts.tools) this.tools = opts.tools;
     if (opts.messages) this.messages = opts.messages;
+    if (opts.instructions) this.instructions = opts.instructions;
 
     this.runtime.on('processes-updated', () => {
       this.emit('processes-updated');
@@ -144,6 +148,7 @@ export class Kernel extends Emitter<KernelEvents> {
       model: this.model,
       messages: this.messages,
       tools: this.tools,
+      instructions: this.instructions,
     });
 
     this.handleStream(stream);
@@ -222,17 +227,25 @@ export class Kernel extends Emitter<KernelEvents> {
 
       if (tool.execute) {
         const output = await tool.execute(args);
+
+        let container: ProcessContainer | null = null;
+        if (output instanceof Process) {
+          container = this.spawn(output);
+        }
+
         this.handleToolResult({
           callId: id,
           name: name,
-          output: output,
+          output: container ?? output,
         });
-      } else if (tool.process) {
+      } else if (tool.target) {
         this.pendingCalls.set(call.id, {
           groupId,
           call,
         });
-        const container = this.spawn(tool.process());
+        const target = tool.target();
+        const container =
+          target instanceof Process ? this.spawn(target) : target;
         container.call(call);
       } else {
         throw new Error(

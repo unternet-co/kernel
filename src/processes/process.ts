@@ -10,6 +10,7 @@ import { ProcessConstructor, ProcessMetadata } from './shared';
 export class Process<SnapshotType = any> implements ProcessMetadata {
   static type?: string;
   name?: string;
+  title?: string;
   icons?: ResourceIcon[];
   tools: Tool[] = [];
   suspendable: boolean = true;
@@ -38,12 +39,12 @@ export class Process<SnapshotType = any> implements ProcessMetadata {
   /**
    * Called with an HTML element container when the process can render something.
    */
-  mount?(element: HTMLElement): void;
+  mount?(element: HTMLElement) {}
 
   /**
    * Called when the HTML container is about to be destroyed.
    */
-  unmount?(): void;
+  unmount() {}
 
   /**
    * Describe the process to the model.

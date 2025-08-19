@@ -81,14 +81,14 @@ class MeaningOfLifeProcess extends Process {
 }
 ```
 
-Instead of providing an `execute` property, this tool will have a `process` that the kernel will instantiate. The tool will then be called on the process, instead of executing the function:
+Instead of providing an `execute` property, this tool will have a `target` that the kernel will instantiate. The tool will then be called on the process, instead of executing the function:
 
 ```typescript
 const meaningOfLifeTool = createTool({
   name: 'meaning_of_life',
   description:
     'Get the answer to the meaning of life, the universe, and everything',
-  process: () => new MeaningOfLifeProcess(),
+  target: () => new MeaningOfLifeProcess(),
 });
 
 const tools = [meaningOfLifeTool];
