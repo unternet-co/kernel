@@ -7,3 +7,4 @@ export * from './resources';
 export * from './tools';
 export * from './utils/emitter';
 export * from './processes/promise-process';
+export * from './memory';
