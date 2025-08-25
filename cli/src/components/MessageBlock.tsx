@@ -62,6 +62,18 @@ export const MessageBlock = React.memo(({ msg }: { msg: Message }) => {
     );
   }
 
+  if (msg.type === 'log') {
+    return (
+      <Box marginTop={1} display="flex" flexDirection="column">
+        <Text backgroundColor="yellow" color="black">
+          {' '}
+          Log{' '}
+        </Text>
+        <Text color="yellow">{msg.text}</Text>
+      </Box>
+    );
+  }
+
   if (msg.type === 'system') {
     return (
       <Box marginTop={1} display="flex" flexDirection="column">

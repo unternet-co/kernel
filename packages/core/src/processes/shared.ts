@@ -15,6 +15,7 @@ export interface ProcessConstructor {
 // ...but they're optional because this is the web after all. Do what you want.
 export interface ProcessMetadata {
   name?: string;
+  title?: string;
   icons?: ResourceIcon[];
 }
 

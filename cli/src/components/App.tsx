@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Box, Text } from 'ink';
-import { createMessage, InputMessage } from '@unternet/kernel';
+import { createMessage, Memory } from '@unternet/kernel';
+import { HonchoMemory } from '@unternet/memory-honcho';
 import TextInput from 'ink-text-input';
 import { useKernel } from '../hooks/useKernel.js';
 import { tools } from '../tools';
@@ -9,11 +10,28 @@ import BigText from 'ink-big-text';
 import { MessageBlock } from './MessageBlock.js';
 import { openai } from '@ai-sdk/openai';
 
+let memory: Memory | undefined;
+
+if (
+  process.env.HONCHO_API_KEY &&
+  process.env.HONCHO_SESSION_ID &&
+  process.env.HONCHO_PEER_ID
+) {
+  memory = new HonchoMemory({
+    apiKey: process.env.HONCHO_API_KEY,
+    sessionId: process.env.HONCHO_SESSION_ID,
+    peerId: process.env.HONCHO_PEER_ID,
+    environment: 'production',
+  });
+}
+
 export const App = () => {
   const [query, setQuery] = useState('');
+
   const { messages, sendMessage, processes } = useKernel({
     model: openai('gpt-4o'),
     tools: tools,
+    memory,
   });
 
   const handleSubmit = (text: string) => {
@@ -34,7 +52,8 @@ export const App = () => {
       </Box>
       <Box paddingX={2} paddingY={1} marginBottom={1} flexGrow={1}>
         <Text dimColor>
-          This is a preview environment for the Unternet Real-Time Kernel.{'\n'}
+          This is a preview environment for the Unternet Real-Time Kernel.
+          {'\n'}
           Enter input commands, and receive responses with tool use.
         </Text>
       </Box>

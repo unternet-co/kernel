@@ -80,10 +80,12 @@ export class Runtime extends Emitter<RuntimeEvents> {
     });
 
     container.on('resume', () => {
+      this.emit('process-changed', { process: container });
       this.emit('process-resumed', { process: container });
     });
 
     container.on('suspend', () => {
+      this.emit('process-changed', { process: container });
       this.emit('process-suspended', { process: container });
     });
 
