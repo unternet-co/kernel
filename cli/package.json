@@ -4,8 +4,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "vite-node ./src/index.tsx",
-    "debug": "vite-node ./src/debug.ts"
+    "dev": "tsx ./src/index.tsx",
+    "debug": "tsx ./src/debug.ts"
   },
   "publishConfig": {
     "access": "public"
