@@ -16,8 +16,7 @@
   ],
   "scripts": {
     "dev": "vite build --watch",
-    "build": "vite build",
-    "release": "npm run build && release-it"
+    "build": "vite build"
   },
   "repository": {
     "type": "git",
