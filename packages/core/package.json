@@ -3,12 +3,23 @@
   "version": "0.6.0",
   "description": "The cognitive engine for intelligent applications.",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "vitest",
     "format": "prettier --write .",
     "dev": "vite build --watch",
-    "build": "vite build"
+    "build": "vite build",
+    "release": "npm run build && release-it"
   },
   "repository": {
     "type": "git",
@@ -24,8 +35,10 @@
   },
   "homepage": "https://github.com/unternet-co/kernel#readme",
   "devDependencies": {
+    "@release-it/conventional-changelog": "^10.0.1",
     "@types/node": "^24.0.10",
     "prettier": "^3.5.3",
+    "release-it": "^19.0.3",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vite-node": "^3.2.4",

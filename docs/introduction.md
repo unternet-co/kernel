@@ -108,3 +108,14 @@ kernel.send(msg2); // "Still working on it! Can I help you with anything else?"
 // { answer: 42 }
 // The answer to the meaning of life is 42.
 ```
+
+## Memory (experimental)
+
+You can add a `Memory` provider to the Kernel in order to have long-running memory of past conversations and the user.
+
+Memory is useful for anything beyond the context window, which is set by default to 100 messages. With memory, you can:
+
+- Provide a summary of the user & message history beyond the context window, which is automatically added to the system prompt
+- Provide a `query` function that the model can call to request information from long-term memory about the user
+
+Our intiial memory implementation uses [Honcho](https://honcho.dev), which you can see in `packages/memory-honcho` and experience by filling out the relevant environment variables in `cli`.
